@@ -135,7 +135,7 @@ for sector, elecs in tqdm(zones.items()):
                 results = map(compute_corrs, tqdm(range(erp.shape[-1])))
 
             else:
-                with multiprocessing.Pool(processes=int(os.cpu_count()/2)) as pool:
+                with multiprocessing.Pool(processes=int(os.cpu_count()/4)) as pool:
                     results = pool.map(compute_corrs, range(erp.shape[1]))
                     pool.terminate()
                     pool.join()
