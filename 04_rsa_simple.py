@@ -129,8 +129,8 @@ for w_one, w_two in all_combs:
 general_folder = 'rsa_plots'
 
 for model in [
-              'perceptual',
               'levenshtein',
+              'perceptual',
               'concreteness',
               'aoa',
               'word_length', 
