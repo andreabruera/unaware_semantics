@@ -10,6 +10,7 @@ from matplotlib import pyplot
 from scipy import stats
 from tqdm import tqdm
 def compute_corrs(t):
+    print([sector_name, elecs])
     t_data = {k : v[elecs, t] for k, v in erp_data.items()}
     t_corrs = [1-scipy.stats.pearsonr(t_data[w_one], t_data[w_two])[0] for w_one, w_two in combs]
     corr = scipy.stats.pearsonr(rsa_lengths, t_corrs)[0]
@@ -48,6 +49,7 @@ with open(os.path.join('data', 'ChanPos.tsv')) as i:
         line = l.strip().split('\t')
         zones[int(line[6])].append(inverse_mapper[line[0]])
 zones[14] = list(range(128))
+del zones[1]
 zone_names = {
               1 : 'left_frontal',
               2 : 'right_frontal',
