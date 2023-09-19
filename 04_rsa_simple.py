@@ -42,9 +42,36 @@ def compute_corrs(t):
     corr = scipy.stats.pearsonr(rsa_model, t_corrs)[0]
     return (t, corr)
 
+def compute_pairwise(t):
+    #print([sector_name, elecs])
+    t_data = {k : v[elecs, t] for k, v in erp_data.items()}
+    ### these are the test sets
+    accuracies = list()
+    for w_one, w_two in combs:
+        rsa_model = [distances[model][tuple(sorted(c))] for c in combs]
+        pred_one = numpy.average([t_data[w]*distances[model][tuple(sorted([w, w_one]))] for w in t_data.keys() if w not in [w_one, w_two]], axis=0)
+        pred_two = numpy.average([t_data[w]*distances[model][tuple(sorted([w, w_two]))] for w in t_data.keys() if w not in [w_one, w_two]], axis=0)
+        ### match
+        match = 0.
+        match += scipy.stats.pearsonr(pred_one, t_data[w_one])[0]
+        match += scipy.stats.pearsonr(pred_two, t_data[w_two])[0]
+        ### match
+        mismatch = 0.
+        mismatch += scipy.stats.pearsonr(pred_one, t_data[w_two])[0]
+        mismatch += scipy.stats.pearsonr(pred_two, t_data[w_one])[0]
+        if match > mismatch:
+            accuracies.append(1.)
+        else:
+            accuracies.append(0.)
+    #t_corrs = [1-scipy.stats.pearsonr(t_data[w_one], t_data[w_two])[0] for w_one, w_two in combs]
+    #corr = scipy.stats.pearsonr(rsa_model, t_corrs)[0]
+    corr = numpy.average(accuracies)
+    return (t, corr)
+
 parser = argparse.ArgumentParser()
 parser.add_argument('--folder', type=str, required=True)
 parser.add_argument('--debugging', action='store_true',)
+parser.add_argument('--evaluation', choices=['correlation', 'pairwise'], required=True)
 args = parser.parse_args()
 folder = os.path.join(args.folder, 'derivatives')
 
@@ -136,7 +163,7 @@ for model in [
               'word_length', 
               'semantic_category', 
               ]:
-    out_folder = os.path.join(general_folder, model)
+    out_folder = os.path.join(general_folder, model, args.evaluation)
     os.makedirs(out_folder, exist_ok=True)
 
     ### analyses are subject-level
@@ -196,16 +223,26 @@ for model in [
                 #avg_data = {k : numpy.average(v, axis=0) for k, v in erp_data.items()}
                 current_words = sorted(erp_data.keys())
                 combs = list(itertools.combinations(current_words, r=2))
-                rsa_model = [distances[model][tuple(sorted(c))] for c in combs]
+                if args.evaluation == 'correlation':
+                    rsa_model = [distances[model][tuple(sorted(c))] for c in combs]
 
-                if args.debugging:
-                    results = map(compute_corrs, tqdm(range(erp.shape[-1])))
+                    if args.debugging:
+                        results = map(compute_corrs, tqdm(range(erp.shape[-1])))
 
-                else:
-                    with multiprocessing.Pool(processes=int(os.cpu_count()/3)) as pool:
-                        results = pool.map(compute_corrs, range(erp.shape[1]))
-                        pool.terminate()
-                        pool.join()
+                    else:
+                        with multiprocessing.Pool(processes=int(os.cpu_count()/3)) as pool:
+                            results = pool.map(compute_corrs, range(erp.shape[1]))
+                            pool.terminate()
+                            pool.join()
+                elif args.evaluation == 'pairwise':
+                    if args.debugging:
+                        results = map(compute_pairwise, tqdm(range(erp.shape[-1])))
+
+                    else:
+                        with multiprocessing.Pool(processes=int(os.cpu_count()/3)) as pool:
+                            results = pool.map(compute_pairwise, range(erp.shape[1]))
+                            pool.terminate()
+                            pool.join()
                 corr_vec = [v[1] for v in sorted(results, key=lambda item : item[0])]
 
                 corr_vec = numpy.array(corr_vec)
