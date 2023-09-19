@@ -9,8 +9,9 @@ import scipy
 from matplotlib import pyplot
 from scipy import stats
 from tqdm import tqdm
+
 def compute_corrs(t):
-    print([sector_name, elecs])
+    #print([sector_name, elecs])
     t_data = {k : v[elecs, t] for k, v in erp_data.items()}
     t_corrs = [1-scipy.stats.pearsonr(t_data[w_one], t_data[w_two])[0] for w_one, w_two in combs]
     corr = scipy.stats.pearsonr(rsa_lengths, t_corrs)[0]
@@ -38,6 +39,21 @@ elec_mapper = ['A{}'.format(i) for i in range(1, 33)] +['B{}'.format(i) for i in
 elec_mapper = {e_i : e for e_i,e in enumerate(elec_mapper)}
 inverse_mapper = {v : k for k, v in elec_mapper.items()}
 
+### reading categories
+cat_mapper = {
+          'animal' : -1,
+          'object' : 1,
+          }
+cats = dict()
+with open(os.path.join('data', 'chosen_words.txt')) as i:
+    counter = 0
+    for l in i:
+        if counter == 0:
+            counter += 1
+            continue
+        line = l.strip().split('\t')
+        cats[line[0]] = cat_mapper[line[-1]]
+
 ### read zones
 zones = {i : list() for i in range(1, 14)}
 with open(os.path.join('data', 'ChanPos.tsv')) as i:
@@ -49,7 +65,6 @@ with open(os.path.join('data', 'ChanPos.tsv')) as i:
         line = l.strip().split('\t')
         zones[int(line[6])].append(inverse_mapper[line[0]])
 zones[14] = list(range(128))
-del zones[1]
 zone_names = {
               1 : 'left_frontal',
               2 : 'right_frontal',
@@ -103,6 +118,8 @@ for sector, elecs in tqdm(zones.items()):
         assert len(lines) == len(events)
         for erp, line in zip(s_data, lines):
             word = line[header.index('trial_type')]
+            if word in ['_', '']:
+                continue
             for key in rel_keys:
                 if line[key] == '2':
                     continue
@@ -126,7 +143,8 @@ for sector, elecs in tqdm(zones.items()):
             #avg_data = {k : numpy.average(v, axis=0) for k, v in erp_data.items()}
             current_words = sorted(erp_data.keys())
             combs = list(itertools.combinations(current_words, r=2))
-            rsa_lengths = [abs(len(w_one)-len(w_two)) for w_one, w_two in combs]
+            #rsa_lengths = [abs(len(w_one)-len(w_two)) for w_one, w_two in combs]
+            rsa_lengths = [abs(cats[w_one]-cats[w_two]) for w_one, w_two in combs]
             if args.debugging:
                 '''
                 corr_vec = list()
@@ -162,8 +180,9 @@ for sector, elecs in tqdm(zones.items()):
     ax.vlines(x=[0.2, 0.4, 0.6, 0.8, 1.], ymin=0.02, ymax=.1, linestyle='dashdot', color='gray', alpha=0.6)
     ax.hlines(y=0., xmin=min(xs), xmax=max(xs), color='black')
     ax.legend(fontsize=20)
-    title = 'Word length RSA analysis for in {}'.format(sector_name)
+    #title = 'Word length RSA analysis for in {}'.format(sector_name)
+    title = 'Semantic category RSA analysis for in {}'.format(sector_name)
     ax.set_title(title)
-    pyplot.savefig(os.path.join(out_folder, 'rsa_word_length_{}.jpg'.format(sector_name)))
+    pyplot.savefig(os.path.join(out_folder, 'rsa_semantic_category_{}.jpg'.format(sector_name)))
     pyplot.clf()
     pyplot.close()
