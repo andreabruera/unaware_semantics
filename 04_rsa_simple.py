@@ -49,8 +49,8 @@ def compute_pairwise(t):
     accuracies = list()
     for w_one, w_two in combs:
         rsa_model = [distances[model][tuple(sorted(c))] for c in combs]
-        pred_one = numpy.average([t_data[w]*distances[model][tuple(sorted([w, w_one]))] for w in t_data.keys() if w not in [w_one, w_two]], axis=0)
-        pred_two = numpy.average([t_data[w]*distances[model][tuple(sorted([w, w_two]))] for w in t_data.keys() if w not in [w_one, w_two]], axis=0)
+        pred_one = numpy.average([t_data[w]*-distances[model][tuple(sorted([w, w_one]))] for w in t_data.keys() if w not in [w_one, w_two]], axis=0)
+        pred_two = numpy.average([t_data[w]*-distances[model][tuple(sorted([w, w_two]))] for w in t_data.keys() if w not in [w_one, w_two]], axis=0)
         ### match
         match = 0.
         match += scipy.stats.pearsonr(pred_one, t_data[w_one])[0]
@@ -224,6 +224,7 @@ for model in [
                 current_words = sorted(erp_data.keys())
                 combs = list(itertools.combinations(current_words, r=2))
                 if args.evaluation == 'correlation':
+                    baseline = 0.
                     rsa_model = [distances[model][tuple(sorted(c))] for c in combs]
 
                     if args.debugging:
@@ -235,6 +236,7 @@ for model in [
                             pool.terminate()
                             pool.join()
                 elif args.evaluation == 'pairwise':
+                    baseline = .5
                     if args.debugging:
                         results = map(compute_pairwise, tqdm(range(erp.shape[-1])))
 
@@ -258,9 +260,9 @@ for model in [
                             alpha=0.2,
                             )
         height = 0.5
-        ax.vlines(x=0., ymin=-.02, ymax=.1, color='black')
-        ax.vlines(x=[0.2, 0.4, 0.6, 0.8, 1.], ymin=0.02, ymax=.1, linestyle='dashdot', color='gray', alpha=0.6)
-        ax.hlines(y=0., xmin=min(xs), xmax=max(xs), color='black')
+        ax.vlines(x=0., ymin=baseline-.02, ymax=baseline+.1, color='black')
+        ax.vlines(x=[0.2, 0.4, 0.6, 0.8, 1.], ymin=baseline-0.02, ymax=baseline+.1, linestyle='dashdot', color='gray', alpha=0.6)
+        ax.hlines(y=baseline, xmin=min(xs), xmax=max(xs), color='black')
         ax.legend(fontsize=20)
         title = '{} RSA analysis for in {}'.format(model, sector_name)
         ax.set_title(title)
