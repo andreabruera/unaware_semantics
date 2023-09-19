@@ -19,7 +19,7 @@ poltrona	armchair	object
 letto	bed	object
 scopa	broom	object
 sedia	chair	object
-camicia	chemise	object
+camicia	shirt	object
 armadio	closet	object
 pettine	comb	object
 giacca	jacket	object
