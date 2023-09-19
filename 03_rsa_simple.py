@@ -10,7 +10,7 @@ from matplotlib import pyplot
 from scipy import stats
 from tqdm import tqdm
 def compute_corrs(t):
-    t_data = {k : v[:, t] for k, v in erp_data.items()}
+    t_data = {k : v[elecs, t] for k, v in erp_data.items()}
     t_corrs = [1-scipy.stats.pearsonr(t_data[w_one], t_data[w_two])[0] for w_one, w_two in combs]
     corr = scipy.stats.pearsonr(rsa_lengths, t_corrs)[0]
     return (t, corr)
@@ -47,6 +47,7 @@ with open(os.path.join('data', 'ChanPos.tsv')) as i:
             continue
         line = l.strip().split('\t')
         zones[int(line[6])].append(inverse_mapper[line[0]])
+zones[14] = list(range(128))
 zone_names = {
               1 : 'left_frontal',
               2 : 'right_frontal',
@@ -61,6 +62,7 @@ zone_names = {
               11 : 'posterior_midline',
               12 : 'left_midline',
               13 : 'right_midline',
+              14 : 'whole_brain',
               }
 
 
