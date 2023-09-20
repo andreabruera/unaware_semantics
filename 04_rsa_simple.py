@@ -42,6 +42,27 @@ def compute_corrs(t):
     corr = scipy.stats.pearsonr(rsa_model, t_corrs)[0]
     return (t, corr)
 
+def compute_ranking(t):
+    #print([sector_name, elecs])
+    t_data = {k : v[elecs, t] for k, v in erp_data.items()}
+    ### these are the test sets
+    accuracies = list()
+    for test_item, real_vec in t_data.items():
+        avg_data = numpy.average([v for k, v in t_data.items() if k!=test_item], axis=0)
+        current_data = {k : v-avg_data for k, v in t_data.items()}
+        #rsa_model = [similarities[model][tuple(sorted(c))] for c in combs]
+        #pred_one = numpy.average([current_data[w]*similarities[model][tuple(sorted([w, w_one]))] for w in t_data.keys() if w not in [w_one, w_two]], axis=0)
+        pred = numpy.sum([current_data[w]*distances[model][tuple(sorted([w, test_item]))] for w in t_data.keys() if w!=test_item], axis=0)
+        scores = {w : scipy.stats.pearsonr(erp, pred)[0] for w, erp in current_data.items()}
+        sorted_w = [v[0] for v in sorted(scores.items(), key=lambda item : item[1], reverse=True)]
+        rank = 1 - (sorted_w.index(test_item) / len(sorted_w))
+        accuracies.append(rank)
+    #t_corrs = [1-scipy.stats.pearsonr(t_data[w_one], t_data[w_two])[0] for w_one, w_two in combs]
+    #corr = scipy.stats.pearsonr(rsa_model, t_corrs)[0]
+    corr = numpy.average(accuracies)
+    #print(corr)
+    return (t, corr)
+
 def compute_pairwise(t):
     #print([sector_name, elecs])
     t_data = {k : v[elecs, t] for k, v in erp_data.items()}
@@ -111,7 +132,7 @@ def zero_one_norm(vectors):
 parser = argparse.ArgumentParser()
 parser.add_argument('--folder', type=str, required=True)
 parser.add_argument('--debugging', action='store_true',)
-parser.add_argument('--evaluation', choices=['correlation', 'pairwise'], required=True)
+parser.add_argument('--evaluation', choices=['correlation', 'pairwise', 'ranking',], required=True)
 args = parser.parse_args()
 folder = os.path.join(args.folder, 'derivatives')
 
@@ -308,6 +329,16 @@ for model in [
                     else:
                         with multiprocessing.Pool(processes=int(os.cpu_count()/3)) as pool:
                             results = pool.map(compute_pairwise, range(erp.shape[1]))
+                            pool.terminate()
+                            pool.join()
+                elif args.evaluation == 'ranking':
+                    baseline = .5
+                    if args.debugging:
+                        results = map(compute_ranking, tqdm(range(erp.shape[-1])))
+
+                    else:
+                        with multiprocessing.Pool(processes=int(os.cpu_count()/3)) as pool:
+                            results = pool.map(compute_ranking, range(erp.shape[1]))
                             pool.terminate()
                             pool.join()
                 corr_vec = [v[1] for v in sorted(results, key=lambda item : item[0])]
