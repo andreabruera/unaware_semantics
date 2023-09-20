@@ -55,7 +55,8 @@ def compute_ranking(t):
         scores = {w : scipy.stats.pearsonr(erp, pred)[0] for w, erp in current_data.items()}
         '''
         ### leaves ERPs untouched
-        pred = numpy.sum([t_data[w]*similarities[model][tuple(sorted([w, test_item]))] for w in t_data.keys() if w!=test_item], axis=0)
+        #pred = numpy.sum([t_data[w]*similarities[model][tuple(sorted([w, test_item]))] for w in t_data.keys() if w!=test_item], axis=0)
+        pred = numpy.sum([t_data[w]*-distances[model][tuple(sorted([w, test_item]))] for w in t_data.keys() if w!=test_item], axis=0)
         scores = {w : scipy.stats.pearsonr(erp, pred)[0] for w, erp in t_data.items()}
         ### sorting and looking at ranking
         sorted_w = [v[0] for v in sorted(scores.items(), key=lambda item : item[1], reverse=True)]
@@ -243,9 +244,9 @@ for h, h_scores in distances.items():
 general_folder = 'rsa_plots'
 
 for model in [
+              'concreteness',
               'semantic_category', 
               'levenshtein',
-              'concreteness',
               'word_length', 
               'aoa',
               'perceptual',
@@ -266,7 +267,6 @@ for model in [
                                     eeg_f,
                                     verbose=False,
                                     preload=True)
-            '''
             s_data = raw_f.get_data(picks='eeg')
             '''
             s_data_unscaled = raw_f.get_data(picks='eeg')
@@ -274,6 +274,7 @@ for model in [
             s_data = mne.decoding.Scaler(raw_f.info, \
                         scalings='mean'\
                         ).fit_transform(s_data_unscaled)
+            '''
             xs = raw_f.times
             events = raw_f.events
             ### initializing ERPs
