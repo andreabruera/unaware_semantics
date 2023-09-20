@@ -51,8 +51,9 @@ def compute_pairwise(t):
         avg_data = numpy.average([v for k, v in t_data.items() if k not in [w_one, w_two]], axis=0)
         current_data = {k : v-avg_data for k, v in t_data.items()}
         #rsa_model = [similarities[model][tuple(sorted(c))] for c in combs]
-        pred_one = numpy.average([current_data[w]*similarities[model][tuple(sorted([w, w_one]))] for w in t_data.keys() if w not in [w_one, w_two]], axis=0)
-        pred_two = numpy.average([current_data[w]*similarities[model][tuple(sorted([w, w_two]))] for w in t_data.keys() if w not in [w_one, w_two]], axis=0)
+        #pred_one = numpy.average([current_data[w]*similarities[model][tuple(sorted([w, w_one]))] for w in t_data.keys() if w not in [w_one, w_two]], axis=0)
+        pred_one = numpy.sum([current_data[w]*distances[model][tuple(sorted([w, w_one]))] for w in t_data.keys() if w not in [w_one, w_two]], axis=0)
+        pred_two = numpy.sum([current_data[w]*distances[model][tuple(sorted([w, w_two]))] for w in t_data.keys() if w not in [w_one, w_two]], axis=0)
         ### match
         match = 0.
         match += scipy.stats.pearsonr(pred_one, current_data[w_one])[0]
@@ -161,26 +162,26 @@ all_combs = [tuple(sorted(v)) for v in itertools.combinations(norms[h].keys(), r
 for norm_type in ['word_length', 'semantic_category', 'concreteness', 'aoa']:
     distances[norm_type] = dict()
     for w_one, w_two in all_combs:
-        distances[norm_type][(w_one, w_two)] = abs(norms[norm_type][w_one] - norms[norm_type][w_two])
+        distances[norm_type][(w_one, w_two)] = -abs(norms[norm_type][w_one] - norms[norm_type][w_two])
 ### perceptual
 senses = ['vision', 'smell', 'taste', 'hearing', 'touch']
 distances['perceptual'] = dict()
 for w_one, w_two in all_combs:
     vec_one = [norms[s][w_one] for s in senses]
     vec_two = [norms[s][w_two] for s in senses]
-    distances['perceptual'][(w_one, w_two)] = 1 - scipy.stats.pearsonr(vec_one, vec_two)[0]
+    distances['perceptual'][(w_one, w_two)] = scipy.stats.pearsonr(vec_one, vec_two)[0]
 ### levenshtein
 distances['levenshtein'] = dict()
 for w_one, w_two in all_combs:
-    distances['levenshtein'][(w_one, w_two)] = levenshtein(w_one, w_two)
+    distances['levenshtein'][(w_one, w_two)] = -levenshtein(w_one, w_two)
 
 ### scaling in 0 to +1
-for h, h_scores in distances.items():
-    #distances[h] = zero_one_norm(h_scores.items())
-    distances[h] = minus_one_one_norm(h_scores.items())
+#for h, h_scores in distances.items():
+#    #distances[h] = zero_one_norm(h_scores.items())
+#    distances[h] = minus_one_one_norm(h_scores.items())
 
 ### turning distances into similarities
-similarities = {h : {k : 1-val for k, val in v.items()} for h, v in distances.items()}
+#similarities = {h : {k : 1-val for k, val in v.items()} for h, v in distances.items()}
 
 general_folder = 'rsa_plots'
 
