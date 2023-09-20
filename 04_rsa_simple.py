@@ -260,6 +260,7 @@ for model in [
                                     eeg_f,
                                     verbose=False,
                                     preload=True)
+            raw_f.decimate(8)
             s_data_unscaled = raw_f.get_data(picks='eeg')
             ### Scaling 
             s_data = mne.decoding.Scaler(raw_f.info, \
