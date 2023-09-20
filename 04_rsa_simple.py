@@ -49,8 +49,8 @@ def compute_pairwise(t):
     accuracies = list()
     for w_one, w_two in combs:
         rsa_model = [distances[model][tuple(sorted(c))] for c in combs]
-        pred_one = numpy.average([t_data[w]*-distances[model][tuple(sorted([w, w_one]))] for w in t_data.keys() if w not in [w_one, w_two]], axis=0)
-        pred_two = numpy.average([t_data[w]*-distances[model][tuple(sorted([w, w_two]))] for w in t_data.keys() if w not in [w_one, w_two]], axis=0)
+        pred_one = numpy.average([t_data[w]*distances[model][tuple(sorted([w, w_one]))] for w in t_data.keys() if w not in [w_one, w_two]], axis=0)
+        pred_two = numpy.average([t_data[w]*distances[model][tuple(sorted([w, w_two]))] for w in t_data.keys() if w not in [w_one, w_two]], axis=0)
         ### match
         match = 0.
         match += scipy.stats.pearsonr(pred_one, t_data[w_one])[0]
@@ -67,6 +67,15 @@ def compute_pairwise(t):
     #corr = scipy.stats.pearsonr(rsa_model, t_corrs)[0]
     corr = numpy.average(accuracies)
     return (t, corr)
+
+def minus_one_one_norm(vectors):
+    labels = [k[1] for k in vectors]
+    names = [k[0] for k in vectors]
+    norm_labels = [int(2*((x-min(labels))/(max(labels)-min(labels)))-1) for x in labels]
+    assert min(norm_labels) == -1
+    assert max(norm_labels) == 1
+    vectors = {n : l for n, l in zip(names, labels)}
+    return vectors
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--folder', type=str, required=True)
@@ -147,21 +156,25 @@ distances['perceptual'] = dict()
 for w_one, w_two in all_combs:
     vec_one = [norms[s][w_one] for s in senses]
     vec_two = [norms[s][w_two] for s in senses]
-    distances['perceptual'][(w_one, w_two)] = scipy.spatial.distance.euclidean(vec_one, vec_two)
+    distances['perceptual'][(w_one, w_two)] = 1 - scipy.stats.pearsonr(vec_one, vec_two)[0]
 ### levenshtein
 distances['levenshtein'] = dict()
 for w_one, w_two in all_combs:
     distances['levenshtein'][(w_one, w_two)] = levenshtein(w_one, w_two)
 
+### scaling in -1 to +1
+for h, h_scores in distances.items():
+    distances[h] = minus_one_one_norm(h_scores.items())
+
 general_folder = 'rsa_plots'
 
 for model in [
+              'semantic_category', 
               'levenshtein',
               'perceptual',
               'concreteness',
               'aoa',
               'word_length', 
-              'semantic_category', 
               ]:
     out_folder = os.path.join(general_folder, model, args.evaluation)
     os.makedirs(out_folder, exist_ok=True)
