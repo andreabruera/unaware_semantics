@@ -69,7 +69,7 @@ def compute_pairwise(t):
     #t_corrs = [1-scipy.stats.pearsonr(t_data[w_one], t_data[w_two])[0] for w_one, w_two in combs]
     #corr = scipy.stats.pearsonr(rsa_model, t_corrs)[0]
     corr = numpy.average(accuracies)
-    print(corr)
+    #print(corr)
     return (t, corr)
 
 def minus_one_one_norm(vectors):
@@ -133,6 +133,12 @@ with open(os.path.join('data', 'ChanPos.tsv')) as i:
         line = l.strip().split('\t')
         zones[int(line[6])].append(inverse_mapper[line[0]])
 zones[14] = list(range(128))
+for i in range(1, 3):
+    del zones[i]
+for i in range(4, 7):
+    del zones[i]
+for i in range(8, 14):
+    del zones[i]
 zone_names = {
               1 : 'left_frontal',
               2 : 'right_frontal',
@@ -185,9 +191,9 @@ for w_one, w_two in all_combs:
     distances['levenshtein'][(w_one, w_two)] = -levenshtein(w_one, w_two)
 
 ### scaling in 0 to +1
-for h, h_scores in distances.items():
-    #distances[h] = zero_one_norm(h_scores.items())
-    distances[h] = one_two_norm(h_scores.items())
+#for h, h_scores in distances.items():
+#    #distances[h] = zero_one_norm(h_scores.items())
+#    distances[h] = one_two_norm(h_scores.items())
 #    distances[h] = minus_one_one_norm(h_scores.items())
 
 ### turning distances into similarities
