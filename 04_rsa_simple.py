@@ -45,18 +45,18 @@ def compute_corrs(t):
 def compute_ranking(t):
     t_data = {k : v[elecs, t] for k, v in erp_data.items()}
     accuracies = list()
-    for test_item, real_vec in t_data.items():
+    for test_item in t_data.keys():
 
-        '''
-        ### remove average activity
+        ### z-scoring
         avg_data = numpy.average([v for k, v in t_data.items() if k!=test_item], axis=0)
-        current_data = {k : v-avg_data for k, v in t_data.items()}
-        pred = numpy.sum([current_data[w]*similarities[model][tuple(sorted([w, test_item]))] for w in t_data.keys() if w!=test_item], axis=0)
-        scores = {w : scipy.stats.pearsonr(erp, pred)[0] for w, erp in current_data.items()}
-        '''
-        ### leaves ERPs untouched
-        #pred = numpy.sum([t_data[w]*similarities[model][tuple(sorted([w, test_item]))] for w in t_data.keys() if w!=test_item], axis=0)
-        pred = numpy.sum([t_data[w]*-distances[model][tuple(sorted([w, test_item]))] for w in t_data.keys() if w!=test_item], axis=0)
+        std_data = numpy.std([v for k, v in t_data.items() if k!=test_item], axis=0)
+        current_data = {k : (v-avg_data)/std_data for k, v in t_data.items()}
+        #num = numpy.sum([current_data[w]*-distances[model][tuple(sorted([w, test_item]))] for w in current_data.keys() if w!=test_item], axis=0)
+        num = numpy.sum([current_data[w]*similarities[model][tuple(sorted([w, test_item]))] for w in current_data.keys() if w!=test_item], axis=0)
+        #den = numpy.sum([abs(distances[model][tuple(sorted([w, test_item]))]) for w in current_data.keys() if w!=test_item])
+        #pred = num / den
+        pred = num.copy()
+        #pred = numpy.sum([t_data[w]*-distances[model][tuple(sorted([w, test_item]))] for w in t_data.keys() if w!=test_item], axis=0)
         scores = {w : scipy.stats.pearsonr(erp, pred)[0] for w, erp in t_data.items()}
         ### sorting and looking at ranking
         sorted_w = [v[0] for v in sorted(scores.items(), key=lambda item : item[1], reverse=True)]
@@ -114,12 +114,12 @@ def one_two_norm(vectors):
     vectors = {n : l for n, l in zip(names, norm_labels)}
     return vectors
 
-def invert_and_norm_one_two(vectors):
+def invert_and_norm_minus_one_one(vectors):
     labels = [k[1] for k in vectors]
     names = [k[0] for k in vectors]
-    norm_labels = [2-((x-min(labels))/(max(labels)-min(labels))) for x in labels]
-    assert min(norm_labels) == 1
-    assert max(norm_labels) == 2
+    norm_labels = [-(2*((x-min(labels))/(max(labels)-min(labels)))-1) for x in labels]
+    assert min(norm_labels) == -1
+    assert max(norm_labels) == 1
     vectors = {n : l for n, l in zip(names, norm_labels)}
     return vectors
 
@@ -239,7 +239,8 @@ for w_one, w_two in all_combs:
 ## in a scale from 1 to 2
 similarities = dict()
 for h, h_scores in distances.items():
-    similarities[h] = invert_and_norm_one_two(h_scores.items())
+    similarities[h] = invert_and_norm_minus_one_one(h_scores.items())
+    #similarities[h] = zero_one_norm(h_scores.items())
 
 general_folder = 'rsa_plots'
 
@@ -266,7 +267,8 @@ for model in [
             raw_f = mne.read_epochs(
                                     eeg_f,
                                     verbose=False,
-                                    preload=True)
+                                    preload=True,
+                                    )
             s_data = raw_f.get_data(picks='eeg')
             '''
             s_data_unscaled = raw_f.get_data(picks='eeg')
