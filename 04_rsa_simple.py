@@ -176,8 +176,10 @@ for w_one, w_two in all_combs:
 
 ### scaling in 0 to +1
 for h, h_scores in distances.items():
-    distances[h] = zero_one_norm(h_scores.items())
+    #distances[h] = zero_one_norm(h_scores.items())
+    distances[h] = minus_one_one_norm(h_scores.items())
 
+### turning distances into similarities
 similarities = {h : {k : 1-val for k, val in v.items()} for h, v in distances.items()}
 
 general_folder = 'rsa_plots'
