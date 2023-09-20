@@ -237,9 +237,9 @@ for h, h_scores in distances.items():
 general_folder = 'rsa_plots'
 
 for model in [
+              'semantic_category', 
               'word_length', 
               'perceptual',
-              'semantic_category', 
               'levenshtein',
               'concreteness',
               'aoa',
@@ -323,8 +323,9 @@ for model in [
                 elif args.evaluation == 'pairwise':
                     baseline = .5
                     combs = list(itertools.combinations(current_words, r=2))
-                    if type(norms[model][word]) in [float]:
-                        combs = [c for c in combs if norms[model][c[0]]!=norms[model][c[1]]]
+                    if model in norms.keys():
+                        if type(norms[model][word]) in [float]:
+                            combs = [c for c in combs if norms[model][c[0]]!=norms[model][c[1]]]
                     if args.debugging:
                         results = map(compute_pairwise, tqdm(range(erp.shape[-1])))
 
