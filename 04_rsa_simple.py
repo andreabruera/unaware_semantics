@@ -243,12 +243,12 @@ for h, h_scores in distances.items():
 general_folder = 'rsa_plots'
 
 for model in [
-              'perceptual',
               'semantic_category', 
               'levenshtein',
               'concreteness',
               'word_length', 
               'aoa',
+              'perceptual',
               ]:
     out_folder = os.path.join(general_folder, model, args.evaluation)
     os.makedirs(out_folder, exist_ok=True)
