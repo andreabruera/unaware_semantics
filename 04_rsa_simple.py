@@ -186,8 +186,6 @@ zone_names = {
               14 : 'whole_brain',
               }
 
-print('now computing pairwise distances...')
-
 ### reading norms
 with open(os.path.join('data', 'word_norms.tsv')) as i:
     counter = 0
@@ -201,6 +199,7 @@ with open(os.path.join('data', 'word_norms.tsv')) as i:
         for h in norms.keys():
             norms[h][line[0]] = float(line[header.index(h)])
 
+print('now computing pairwise distances...')
 ### computing all distances
 distances = dict()
 all_combs = [tuple(sorted(v)) for v in itertools.combinations(norms[h].keys(), r=2)]
@@ -238,8 +237,8 @@ for h, h_scores in distances.items():
 general_folder = 'rsa_plots'
 
 for model in [
-              'perceptual',
               'word_length', 
+              'perceptual',
               'semantic_category', 
               'levenshtein',
               'concreteness',
@@ -308,9 +307,9 @@ for model in [
                     continue
                 #avg_data = {k : numpy.average(v, axis=0) for k, v in erp_data.items()}
                 current_words = sorted(erp_data.keys())
-                combs = list(itertools.combinations(current_words, r=2))
                 if args.evaluation == 'correlation':
                     baseline = 0.
+                    combs = list(itertools.combinations(current_words, r=2))
                     rsa_model = [distances[model][tuple(sorted(c))] for c in combs]
 
                     if args.debugging:
@@ -323,6 +322,9 @@ for model in [
                             pool.join()
                 elif args.evaluation == 'pairwise':
                     baseline = .5
+                    combs = list(itertools.combinations(current_words, r=2))
+                    if type(norms[model][word]) in [float]:
+                        combs = [c for c in combs if norms[model][c[0]]!=norms[model][c[1]]]
                     if args.debugging:
                         results = map(compute_pairwise, tqdm(range(erp.shape[-1])))
 
