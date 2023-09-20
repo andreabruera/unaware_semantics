@@ -43,24 +43,24 @@ def compute_corrs(t):
     return (t, corr)
 
 def compute_ranking(t):
-    #print([sector_name, elecs])
     t_data = {k : v[elecs, t] for k, v in erp_data.items()}
-    ### these are the test sets
     accuracies = list()
     for test_item, real_vec in t_data.items():
+
+        ### remove average activity
         #avg_data = numpy.average([v for k, v in t_data.items() if k!=test_item], axis=0)
         #current_data = {k : v-avg_data for k, v in t_data.items()}
-        #rsa_model = [similarities[model][tuple(sorted(c))] for c in combs]
-        #pred_one = numpy.average([current_data[w]*similarities[model][tuple(sorted([w, w_one]))] for w in t_data.keys() if w not in [w_one, w_two]], axis=0)
-        #pred = numpy.sum([current_data[w]*distances[model][tuple(sorted([w, test_item]))] for w in t_data.keys() if w!=test_item], axis=0)
-        pred = numpy.sum([t_data[w]*similarities[model][tuple(sorted([w, test_item]))] for w in t_data.keys() if w!=test_item], axis=0)
+        #pred = numpy.sum([current_data[w]*similarities[model][tuple(sorted([w, test_item]))] for w in t_data.keys() if w!=test_item], axis=0)
         #scores = {w : scipy.stats.pearsonr(erp, pred)[0] for w, erp in current_data.items()}
+
+        ### leaves ERPs untouched
+        pred = numpy.sum([t_data[w]*similarities[model][tuple(sorted([w, test_item]))] for w in t_data.keys() if w!=test_item], axis=0)
         scores = {w : scipy.stats.pearsonr(erp, pred)[0] for w, erp in t_data.items()}
+
+        ### sorting and looking at ranking
         sorted_w = [v[0] for v in sorted(scores.items(), key=lambda item : item[1], reverse=True)]
         rank = 1 - (sorted_w.index(test_item) / len(sorted_w))
         accuracies.append(rank)
-    #t_corrs = [1-scipy.stats.pearsonr(t_data[w_one], t_data[w_two])[0] for w_one, w_two in combs]
-    #corr = scipy.stats.pearsonr(rsa_model, t_corrs)[0]
     corr = numpy.average(accuracies)
     #print(corr)
     return (t, corr)
@@ -219,7 +219,7 @@ distances['perceptual'] = dict()
 for w_one, w_two in all_combs:
     vec_one = [norms[s][w_one] for s in senses]
     vec_two = [norms[s][w_two] for s in senses]
-    distances['perceptual'][(w_one, w_two)] = scipy.spatial.distance.euclidean(vec_one, vec_two)
+    distances['perceptual'][(w_one, w_two)] = 1 - scipy.stats.pearsonr(vec_one, vec_two)[0]
 ### levenshtein
 distances['levenshtein'] = dict()
 for w_one, w_two in all_combs:
