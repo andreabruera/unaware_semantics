@@ -90,6 +90,15 @@ def one_two_norm(vectors):
     vectors = {n : l for n, l in zip(names, norm_labels)}
     return vectors
 
+def invert_and_norm_one_two(vectors):
+    labels = [k[1] for k in vectors]
+    names = [k[0] for k in vectors]
+    norm_labels = [2-((x-min(labels))/(max(labels)-min(labels))) for x in labels]
+    assert min(norm_labels) == 1
+    assert max(norm_labels) == 2
+    vectors = {n : l for n, l in zip(names, norm_labels)}
+    return vectors
+
 def zero_one_norm(vectors):
     labels = [k[1] for k in vectors]
     names = [k[0] for k in vectors]
@@ -177,18 +186,18 @@ all_combs = [tuple(sorted(v)) for v in itertools.combinations(norms[h].keys(), r
 for norm_type in ['word_length', 'semantic_category', 'concreteness', 'aoa']:
     distances[norm_type] = dict()
     for w_one, w_two in all_combs:
-        distances[norm_type][(w_one, w_two)] = -abs(norms[norm_type][w_one] - norms[norm_type][w_two])
+        distances[norm_type][(w_one, w_two)] = abs(norms[norm_type][w_one] - norms[norm_type][w_two])
 ### perceptual
 senses = ['vision', 'smell', 'taste', 'hearing', 'touch']
 distances['perceptual'] = dict()
 for w_one, w_two in all_combs:
     vec_one = [norms[s][w_one] for s in senses]
     vec_two = [norms[s][w_two] for s in senses]
-    distances['perceptual'][(w_one, w_two)] = scipy.stats.pearsonr(vec_one, vec_two)[0]
+    distances['perceptual'][(w_one, w_two)] = 1 - scipy.stats.pearsonr(vec_one, vec_two)[0]
 ### levenshtein
 distances['levenshtein'] = dict()
 for w_one, w_two in all_combs:
-    distances['levenshtein'][(w_one, w_two)] = -levenshtein(w_one, w_two)
+    distances['levenshtein'][(w_one, w_two)] = levenshtein(w_one, w_two)
 
 ### scaling in 0 to +1
 #for h, h_scores in distances.items():
@@ -199,12 +208,18 @@ for w_one, w_two in all_combs:
 ### turning distances into similarities
 #similarities = {h : {k : 1-val for k, val in v.items()} for h, v in distances.items()}
 
+## turning distances into similarities
+## in a scale from 1 to 2
+similarities = dict()
+for h, h_scores in distances.items():
+    similarities[h] = invert_and_norm_one_two(h_scores.items())
+
 general_folder = 'rsa_plots'
 
 for model in [
+              'perceptual',
               'word_length', 
               'semantic_category', 
-              'perceptual',
               'levenshtein',
               'concreteness',
               'aoa',
