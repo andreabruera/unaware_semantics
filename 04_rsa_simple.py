@@ -48,15 +48,15 @@ def compute_ranking(t):
     for test_item, real_vec in t_data.items():
 
         ### remove average activity
-        #avg_data = numpy.average([v for k, v in t_data.items() if k!=test_item], axis=0)
-        #current_data = {k : v-avg_data for k, v in t_data.items()}
-        #pred = numpy.sum([current_data[w]*similarities[model][tuple(sorted([w, test_item]))] for w in t_data.keys() if w!=test_item], axis=0)
-        #scores = {w : scipy.stats.pearsonr(erp, pred)[0] for w, erp in current_data.items()}
-
+        avg_data = numpy.average([v for k, v in t_data.items() if k!=test_item], axis=0)
+        current_data = {k : v-avg_data for k, v in t_data.items()}
+        pred = numpy.sum([current_data[w]*similarities[model][tuple(sorted([w, test_item]))] for w in t_data.keys() if w!=test_item], axis=0)
+        scores = {w : scipy.stats.pearsonr(erp, pred)[0] for w, erp in current_data.items()}
+        '''
         ### leaves ERPs untouched
         pred = numpy.sum([t_data[w]*similarities[model][tuple(sorted([w, test_item]))] for w in t_data.keys() if w!=test_item], axis=0)
         scores = {w : scipy.stats.pearsonr(erp, pred)[0] for w, erp in t_data.items()}
-
+        '''
         ### sorting and looking at ranking
         sorted_w = [v[0] for v in sorted(scores.items(), key=lambda item : item[1], reverse=True)]
         rank = 1 - (sorted_w.index(test_item) / len(sorted_w))
