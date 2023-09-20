@@ -48,17 +48,19 @@ def compute_pairwise(t):
     ### these are the test sets
     accuracies = list()
     for w_one, w_two in combs:
-        rsa_model = [distances[model][tuple(sorted(c))] for c in combs]
-        pred_one = numpy.average([t_data[w]*distances[model][tuple(sorted([w, w_one]))] for w in t_data.keys() if w not in [w_one, w_two]], axis=0)
-        pred_two = numpy.average([t_data[w]*distances[model][tuple(sorted([w, w_two]))] for w in t_data.keys() if w not in [w_one, w_two]], axis=0)
+        avg_data = numpy.average([v for k, v in t_data.items() if k not in [w_one, w_two]], axis=0)
+        current_data = {k : v-avg_data for k, v in t_data.items()}
+        #rsa_model = [similarities[model][tuple(sorted(c))] for c in combs]
+        pred_one = numpy.average([current_data[w]*similarities[model][tuple(sorted([w, w_one]))] for w in t_data.keys() if w not in [w_one, w_two]], axis=0)
+        pred_two = numpy.average([current_data[w]*similarities[model][tuple(sorted([w, w_two]))] for w in t_data.keys() if w not in [w_one, w_two]], axis=0)
         ### match
         match = 0.
-        match += scipy.stats.pearsonr(pred_one, t_data[w_one])[0]
-        match += scipy.stats.pearsonr(pred_two, t_data[w_two])[0]
+        match += scipy.stats.pearsonr(pred_one, current_data[w_one])[0]
+        match += scipy.stats.pearsonr(pred_two, current_data[w_two])[0]
         ### match
         mismatch = 0.
-        mismatch += scipy.stats.pearsonr(pred_one, t_data[w_two])[0]
-        mismatch += scipy.stats.pearsonr(pred_two, t_data[w_one])[0]
+        mismatch += scipy.stats.pearsonr(pred_one, current_data[w_two])[0]
+        mismatch += scipy.stats.pearsonr(pred_two, current_data[w_one])[0]
         if match > mismatch:
             accuracies.append(1.)
         else:
@@ -66,15 +68,25 @@ def compute_pairwise(t):
     #t_corrs = [1-scipy.stats.pearsonr(t_data[w_one], t_data[w_two])[0] for w_one, w_two in combs]
     #corr = scipy.stats.pearsonr(rsa_model, t_corrs)[0]
     corr = numpy.average(accuracies)
+    print(corr)
     return (t, corr)
 
 def minus_one_one_norm(vectors):
     labels = [k[1] for k in vectors]
     names = [k[0] for k in vectors]
-    norm_labels = [int(2*((x-min(labels))/(max(labels)-min(labels)))-1) for x in labels]
+    norm_labels = [2*((x-min(labels))/(max(labels)-min(labels)))-1 for x in labels]
     assert min(norm_labels) == -1
     assert max(norm_labels) == 1
-    vectors = {n : l for n, l in zip(names, labels)}
+    vectors = {n : l for n, l in zip(names, norm_labels)}
+    return vectors
+
+def zero_one_norm(vectors):
+    labels = [k[1] for k in vectors]
+    names = [k[0] for k in vectors]
+    norm_labels = [(x-min(labels))/(max(labels)-min(labels)) for x in labels]
+    assert min(norm_labels) == 0
+    assert max(norm_labels) == 1
+    vectors = {n : l for n, l in zip(names, norm_labels)}
     return vectors
 
 parser = argparse.ArgumentParser()
@@ -162,19 +174,21 @@ distances['levenshtein'] = dict()
 for w_one, w_two in all_combs:
     distances['levenshtein'][(w_one, w_two)] = levenshtein(w_one, w_two)
 
-### scaling in -1 to +1
+### scaling in 0 to +1
 for h, h_scores in distances.items():
-    distances[h] = minus_one_one_norm(h_scores.items())
+    distances[h] = zero_one_norm(h_scores.items())
+
+similarities = {h : {k : 1-val for k, val in v.items()} for h, v in distances.items()}
 
 general_folder = 'rsa_plots'
 
 for model in [
+              'perceptual',
+              'word_length', 
               'semantic_category', 
               'levenshtein',
-              'perceptual',
               'concreteness',
               'aoa',
-              'word_length', 
               ]:
     out_folder = os.path.join(general_folder, model, args.evaluation)
     os.makedirs(out_folder, exist_ok=True)
@@ -192,7 +206,11 @@ for model in [
                                     eeg_f,
                                     verbose=False,
                                     preload=True)
-            s_data = raw_f.get_data(picks='eeg')
+            s_data_unscaled = raw_f.get_data(picks='eeg')
+            ### Scaling 
+            s_data = mne.decoding.Scaler(raw_f.info, \
+                        scalings='mean'\
+                        ).fit_transform(s_data_unscaled)
             xs = raw_f.times
             events = raw_f.events
             ### initializing ERPs
