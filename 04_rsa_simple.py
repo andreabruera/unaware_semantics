@@ -264,12 +264,12 @@ for model in [
                                     eeg_f,
                                     verbose=False,
                                     preload=True)
-            s_data = raw_f.get_data(picks='eeg')
-            #s_data_unscaled = raw_f.get_data(picks='eeg')
+            #s_data = raw_f.get_data(picks='eeg')
+            s_data_unscaled = raw_f.get_data(picks='eeg')
             ### Scaling 
-            #s_data = mne.decoding.Scaler(raw_f.info, \
-            #            scalings='mean'\
-            #            ).fit_transform(s_data_unscaled)
+            s_data = mne.decoding.Scaler(raw_f.info, \
+                        scalings='mean'\
+                        ).fit_transform(s_data_unscaled)
             xs = raw_f.times
             events = raw_f.events
             ### initializing ERPs
