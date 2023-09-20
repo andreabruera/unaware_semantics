@@ -68,7 +68,7 @@ def compute_pairwise(t):
     #t_corrs = [1-scipy.stats.pearsonr(t_data[w_one], t_data[w_two])[0] for w_one, w_two in combs]
     #corr = scipy.stats.pearsonr(rsa_model, t_corrs)[0]
     corr = numpy.average(accuracies)
-    print(corr)
+    #print(corr)
     return (t, corr)
 
 def minus_one_one_norm(vectors):
