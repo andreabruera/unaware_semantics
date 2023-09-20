@@ -219,7 +219,7 @@ distances['perceptual'] = dict()
 for w_one, w_two in all_combs:
     vec_one = [norms[s][w_one] for s in senses]
     vec_two = [norms[s][w_two] for s in senses]
-    distances['perceptual'][(w_one, w_two)] = 1 - scipy.stats.pearsonr(vec_one, vec_two)[0]
+    distances['perceptual'][(w_one, w_two)] = scipy.spatial.distance.cosine(vec_one, vec_two)
 ### levenshtein
 distances['levenshtein'] = dict()
 for w_one, w_two in all_combs:
