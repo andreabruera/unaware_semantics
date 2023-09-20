@@ -69,7 +69,7 @@ def compute_pairwise(t):
     #t_corrs = [1-scipy.stats.pearsonr(t_data[w_one], t_data[w_two])[0] for w_one, w_two in combs]
     #corr = scipy.stats.pearsonr(rsa_model, t_corrs)[0]
     corr = numpy.average(accuracies)
-    #print(corr)
+    print(corr)
     return (t, corr)
 
 def minus_one_one_norm(vectors):
@@ -78,6 +78,15 @@ def minus_one_one_norm(vectors):
     norm_labels = [2*((x-min(labels))/(max(labels)-min(labels)))-1 for x in labels]
     assert min(norm_labels) == -1
     assert max(norm_labels) == 1
+    vectors = {n : l for n, l in zip(names, norm_labels)}
+    return vectors
+
+def one_two_norm(vectors):
+    labels = [k[1] for k in vectors]
+    names = [k[0] for k in vectors]
+    norm_labels = [((x-min(labels))/(max(labels)-min(labels)))+1 for x in labels]
+    assert min(norm_labels) == 1
+    assert max(norm_labels) == 2
     vectors = {n : l for n, l in zip(names, norm_labels)}
     return vectors
 
@@ -176,8 +185,9 @@ for w_one, w_two in all_combs:
     distances['levenshtein'][(w_one, w_two)] = -levenshtein(w_one, w_two)
 
 ### scaling in 0 to +1
-#for h, h_scores in distances.items():
-#    #distances[h] = zero_one_norm(h_scores.items())
+for h, h_scores in distances.items():
+    #distances[h] = zero_one_norm(h_scores.items())
+    distances[h] = one_two_norm(h_scores.items())
 #    distances[h] = minus_one_one_norm(h_scores.items())
 
 ### turning distances into similarities
@@ -186,9 +196,9 @@ for w_one, w_two in all_combs:
 general_folder = 'rsa_plots'
 
 for model in [
-              'perceptual',
               'word_length', 
               'semantic_category', 
+              'perceptual',
               'levenshtein',
               'concreteness',
               'aoa',
