@@ -48,12 +48,12 @@ def compute_ranking(t):
     ### these are the test sets
     accuracies = list()
     for test_item, real_vec in t_data.items():
-        avg_data = numpy.average([v for k, v in t_data.items() if k!=test_item], axis=0)
-        current_data = {k : v-avg_data for k, v in t_data.items()}
+        #avg_data = numpy.average([v for k, v in t_data.items() if k!=test_item], axis=0)
+        #current_data = {k : v-avg_data for k, v in t_data.items()}
         #rsa_model = [similarities[model][tuple(sorted(c))] for c in combs]
         #pred_one = numpy.average([current_data[w]*similarities[model][tuple(sorted([w, w_one]))] for w in t_data.keys() if w not in [w_one, w_two]], axis=0)
-        pred = numpy.sum([current_data[w]*distances[model][tuple(sorted([w, test_item]))] for w in t_data.keys() if w!=test_item], axis=0)
-        scores = {w : scipy.stats.pearsonr(erp, pred)[0] for w, erp in current_data.items()}
+        pred = numpy.sum([t_data[w]*distances[model][tuple(sorted([w, test_item]))] for w in t_data.keys() if w!=test_item], axis=0)
+        scores = {w : scipy.stats.pearsonr(erp, pred)[0] for w, erp in t_data.items()}
         sorted_w = [v[0] for v in sorted(scores.items(), key=lambda item : item[1], reverse=True)]
         rank = 1 - (sorted_w.index(test_item) / len(sorted_w))
         accuracies.append(rank)
@@ -163,11 +163,15 @@ with open(os.path.join('data', 'ChanPos.tsv')) as i:
         line = l.strip().split('\t')
         zones[int(line[6])].append(inverse_mapper[line[0]])
 zones[14] = list(range(128))
+'''
 for i in range(1, 3):
     del zones[i]
 for i in range(4, 7):
     del zones[i]
 for i in range(8, 14):
+    del zones[i]
+'''
+for i in range(1, 14):
     del zones[i]
 zone_names = {
               1 : 'left_frontal',
@@ -213,7 +217,7 @@ distances['perceptual'] = dict()
 for w_one, w_two in all_combs:
     vec_one = [norms[s][w_one] for s in senses]
     vec_two = [norms[s][w_two] for s in senses]
-    distances['perceptual'][(w_one, w_two)] = 1 - scipy.stats.pearsonr(vec_one, vec_two)[0]
+    distances['perceptual'][(w_one, w_two)] = scipy.spatial.distance.euclidean(vec_one, vec_two)
 ### levenshtein
 distances['levenshtein'] = dict()
 for w_one, w_two in all_combs:
@@ -237,11 +241,11 @@ for h, h_scores in distances.items():
 general_folder = 'rsa_plots'
 
 for model in [
-              'semantic_category', 
-              'word_length', 
               'perceptual',
+              'semantic_category', 
               'levenshtein',
               'concreteness',
+              'word_length', 
               'aoa',
               ]:
     out_folder = os.path.join(general_folder, model, args.evaluation)
@@ -260,12 +264,12 @@ for model in [
                                     eeg_f,
                                     verbose=False,
                                     preload=True)
-            raw_f.decimate(8)
-            s_data_unscaled = raw_f.get_data(picks='eeg')
+            s_data = raw_f.get_data(picks='eeg')
+            #s_data_unscaled = raw_f.get_data(picks='eeg')
             ### Scaling 
-            s_data = mne.decoding.Scaler(raw_f.info, \
-                        scalings='mean'\
-                        ).fit_transform(s_data_unscaled)
+            #s_data = mne.decoding.Scaler(raw_f.info, \
+            #            scalings='mean'\
+            #            ).fit_transform(s_data_unscaled)
             xs = raw_f.times
             events = raw_f.events
             ### initializing ERPs
