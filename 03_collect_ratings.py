@@ -1,5 +1,33 @@
 import numpy
 import os
+import pickle
+
+from tqdm import tqdm
+
+def levenshtein(seq1, seq2):
+    size_x = len(seq1) + 1
+    size_y = len(seq2) + 1
+    matrix = numpy.zeros((size_x, size_y))
+    for x in range(size_x):
+        matrix [x, 0] = x
+    for y in range(size_y):
+        matrix [0, y] = y
+
+    for x in range(1, size_x):
+        for y in range(1, size_y):
+            if seq1[x-1] == seq2[y-1]:
+                matrix [x,y] = min(
+                    matrix[x-1, y] + 1,
+                    matrix[x-1, y-1],
+                    matrix[x, y-1] + 1
+                )
+            else:
+                matrix [x,y] = min(
+                    matrix[x-1,y] + 1,
+                    matrix[x-1,y-1] + 1,
+                    matrix[x,y-1] + 1
+                )
+    return (matrix[size_x - 1, size_y - 1])
 
 ### reading categories
 cat_mapper = {
@@ -58,7 +86,6 @@ with open(os.path.join('data', 'kuperman_aoa.tsv')) as i:
         idx = header.index('Rating.Mean')
         ratings['aoa'][en_to_it[word]].append(float(line[idx]))
 
-
 ### reading dataset #1
 mapper = {
           'Visual.mean' : 'vision',
@@ -82,6 +109,37 @@ with open(os.path.join('data', 'Lancaster_sensorimotor_norms_for_39707_words.tsv
             idx = header.index(k)
             ratings[dest][en_to_it[word]].append(float(line[idx]))
 
+
+### reading frequencies
+for corpus in ['opensubs', 'wac']:
+    freqs = pickle.load(open(os.path.join('..', 'psychorpus', 'pickles', 'it', 'it_{}_word_freqs.pkl'.format(corpus)), 'rb'))
+    ratings['{}_raw_frequency'.format(corpus)] = dict()
+    ratings['{}_log10_frequency'.format(corpus)] = dict()
+    for w in cats:
+        ratings['{}_raw_frequency'.format(corpus)][w] = [freqs[w]]
+        ratings['{}_log10_frequency'.format(corpus)][w] = [numpy.log10(freqs[w])]
+
+ratings['joint_corpora_raw_frequency'] = dict()
+ratings['joint_corpora_log10_frequency'] = dict()
+for w in cats:
+    ratings['joint_corpora_raw_frequency'][w] = 0
+    for corpus in ['opensubs', 'wac']:
+        freq = ratings['{}_raw_frequency'.format(corpus)][w][0]
+        ratings['joint_corpora_raw_frequency'][w] += freq
+    ratings['joint_corpora_log10_frequency'][w] = [ratings['joint_corpora_raw_frequency'][w]]
+    ratings['joint_corpora_raw_frequency'][w] = [ratings['joint_corpora_raw_frequency'][w]]
+
+### computing OLD20
+lemma_freqs = pickle.load(open(os.path.join('..', 'psychorpus', 'pickles', 'it', 'it_wac_lemma_freqs.pkl'), 'rb'))
+max_n = 35502
+other_words = sorted(lemma_freqs.items(), key=lambda item : item[1], reverse=True)[:max_n]
+
+ratings['OLD20'] = dict()
+for w in tqdm(cats.keys()):
+    lev_vals = [levenshtein(w, other_w) for other_w in other_words]
+    score = numpy.average(sorted(lev_vals, reverse=True)[:20])
+    ratings['OLD20'][w] = [score]
+
 for k, v in ratings.items():
     for w, w_v in v.items():
         assert len(w_v) >= 1
@@ -90,9 +148,18 @@ for k, v in ratings.items():
 
 ### writing to file
 with open(os.path.join('data', 'word_norms.tsv'), 'w') as o:
-    o.write('word\tword_length\tsemantic_category\taoa\tconcreteness\tvision\tsmell\ttouch\ttaste\thearing\n')
+    o.write('word\tword_length\tsemantic_category\t')
+    for cat in ['OLD20', 'wac_raw_frequency', 'wac_log10_frequency', 
+                'opensubs_raw_frequency', 'opensubs_log10_frequency',
+                'joint_corpora_raw_frequency', 'joint_corpora_log10_frequency',
+                'aoa', 'concreteness', 'vision', 'smell', 'touch', 'taste', 'hearing']:
+        o.write('{}\t'.format(cat))
+    o.write('\n')
     for w, c in cats.items():
         o.write('{}\t{}\t{}\t'.format(w, len(w), c))
-        for cat in ['aoa', 'concreteness', 'vision', 'smell', 'touch', 'taste', 'hearing']:
+        for cat in ['OLD20', 'wac_raw_frequency', 'wac_log10_frequency', 
+                    'opensubs_raw_frequency', 'opensubs_log10_frequency',
+                    'joint_corpora_raw_frequency', 'joint_corpora_log10_frequency',
+                    'aoa', 'concreteness', 'vision', 'smell', 'touch', 'taste', 'hearing']:
             o.write('{}\t'.format(ratings[cat][w][0]))
         o.write('\n')

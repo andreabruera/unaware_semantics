@@ -10,6 +10,23 @@ from matplotlib import pyplot
 from scipy import spatial, stats
 from tqdm import tqdm
 
+def rsa_encoding(current_data, test_items):
+    predicted_vectors = list()
+    for t in test_items:
+        num = numpy.sum([current_data[w]*similarities[model][tuple(sorted([w, t]))] for w in current_data.keys() if w not in test_items], axis=0)
+        #den = numpy.sum([abs(similarities[model][tuple(sorted([w, t]))]) for w in current_data.keys() if w not in test_items])
+        #pred = num / den
+        pred = num.copy()
+        predicted_vectors.append(pred)
+
+    return predicted_vectors
+
+def z_score(data, test_items):
+    avg_data = numpy.average([v for k, v in data.items() if k not in test_items], axis=0)
+    std_data = numpy.std([v for k, v in data.items() if k not in test_items], axis=0)
+    current_data = {k : (v-avg_data)/std_data for k, v in data.items()}
+    return current_data
+
 def levenshtein(seq1, seq2):
     size_x = len(seq1) + 1
     size_y = len(seq2) + 1
@@ -42,22 +59,32 @@ def compute_corrs(t):
     corr = scipy.stats.pearsonr(rsa_model, t_corrs)[0]
     return (t, corr)
 
+def compute_correlation(t):
+    t_data = {k : v[elecs, t] for k, v in erp_data.items()}
+    accuracies = list()
+    for test_item in t_data.keys():
+        ### z-scoring
+        current_data = z_score(t_data, [test_item])
+        predictions = rsa_encoding(current_data, [test_item])
+        predicted_vector = predictions[0]
+
+        score = scipy.stats.pearsonr(predicted_vector, t_data[test_item])[0]
+
+        accuracies.append(score)
+    corr = numpy.average(accuracies)
+    #print(corr)
+    return (t, corr)
+
 def compute_ranking(t):
     t_data = {k : v[elecs, t] for k, v in erp_data.items()}
     accuracies = list()
     for test_item in t_data.keys():
-
         ### z-scoring
-        avg_data = numpy.average([v for k, v in t_data.items() if k!=test_item], axis=0)
-        std_data = numpy.std([v for k, v in t_data.items() if k!=test_item], axis=0)
-        current_data = {k : (v-avg_data)/std_data for k, v in t_data.items()}
-        #num = numpy.sum([current_data[w]*-distances[model][tuple(sorted([w, test_item]))] for w in current_data.keys() if w!=test_item], axis=0)
-        num = numpy.sum([current_data[w]*similarities[model][tuple(sorted([w, test_item]))] for w in current_data.keys() if w!=test_item], axis=0)
-        #den = numpy.sum([abs(distances[model][tuple(sorted([w, test_item]))]) for w in current_data.keys() if w!=test_item])
-        #pred = num / den
-        pred = num.copy()
-        #pred = numpy.sum([t_data[w]*-distances[model][tuple(sorted([w, test_item]))] for w in t_data.keys() if w!=test_item], axis=0)
-        scores = {w : scipy.stats.pearsonr(erp, pred)[0] for w, erp in t_data.items()}
+        current_data = z_score(t_data, [test_item])
+        predictions = rsa_encoding(current_data, [test_item])
+        predicted_vector = predictions[0]
+
+        scores = {w : scipy.stats.pearsonr(erp, predicted_vector)[0] for w, erp in t_data.items()}
         ### sorting and looking at ranking
         sorted_w = [v[0] for v in sorted(scores.items(), key=lambda item : item[1], reverse=True)]
         rank = 1 - (sorted_w.index(test_item) / len(sorted_w))
@@ -72,31 +99,27 @@ def compute_pairwise(t):
     ### these are the test sets
     accuracies = list()
     for w_one, w_two in combs:
-        avg_data = numpy.average([v for k, v in t_data.items() if k not in [w_one, w_two]], axis=0)
-        current_data = {k : v-avg_data for k, v in t_data.items()}
-        #rsa_model = [similarities[model][tuple(sorted(c))] for c in combs]
-        #pred_one = numpy.average([current_data[w]*similarities[model][tuple(sorted([w, w_one]))] for w in t_data.keys() if w not in [w_one, w_two]], axis=0)
-        pred_one = numpy.sum([current_data[w]*distances[model][tuple(sorted([w, w_one]))] for w in t_data.keys() if w not in [w_one, w_two]], axis=0)
-        pred_two = numpy.sum([current_data[w]*distances[model][tuple(sorted([w, w_two]))] for w in t_data.keys() if w not in [w_one, w_two]], axis=0)
+        current_data = z_score(t_data, [w_one, w_two])
+        predictions = rsa_encoding(current_data, [w_one, w_two])
+        pred_one = predictions[0]
+        pred_two = predictions[1]
         ### match
         match = 0.
-        match += scipy.stats.pearsonr(pred_one, current_data[w_one])[0]
-        match += scipy.stats.pearsonr(pred_two, current_data[w_two])[0]
-        ### match
+        match += scipy.stats.pearsonr(pred_one, t_data[w_one])[0]
+        match += scipy.stats.pearsonr(pred_two, t_data[w_two])[0]
+        ### mismatch
         mismatch = 0.
-        mismatch += scipy.stats.pearsonr(pred_one, current_data[w_two])[0]
-        mismatch += scipy.stats.pearsonr(pred_two, current_data[w_one])[0]
+        mismatch += scipy.stats.pearsonr(pred_one, t_data[w_two])[0]
+        mismatch += scipy.stats.pearsonr(pred_two, t_data[w_one])[0]
         if match > mismatch:
             accuracies.append(1.)
         else:
             accuracies.append(0.)
-    #t_corrs = [1-scipy.stats.pearsonr(t_data[w_one], t_data[w_two])[0] for w_one, w_two in combs]
-    #corr = scipy.stats.pearsonr(rsa_model, t_corrs)[0]
     corr = numpy.average(accuracies)
     #print(corr)
     return (t, corr)
 
-def minus_one_one_norm(vectors):
+def norm_minus_one_one(vectors):
     labels = [k[1] for k in vectors]
     names = [k[0] for k in vectors]
     norm_labels = [2*((x-min(labels))/(max(labels)-min(labels)))-1 for x in labels]
@@ -157,6 +180,7 @@ inverse_mapper = {v : k for k, v in elec_mapper.items()}
 
 ### read zones
 zones = {i : list() for i in range(1, 14)}
+zones[0] = list(range(128))
 with open(os.path.join('data', 'ChanPos.tsv')) as i:
     counter = 0
     for l in i:
@@ -165,18 +189,10 @@ with open(os.path.join('data', 'ChanPos.tsv')) as i:
             continue
         line = l.strip().split('\t')
         zones[int(line[6])].append(inverse_mapper[line[0]])
-zones[14] = list(range(128))
-'''
-for i in range(1, 3):
-    del zones[i]
-for i in range(4, 7):
-    del zones[i]
-for i in range(8, 14):
-    del zones[i]
-'''
-for i in range(1, 14):
-    del zones[i]
+#for i in range(1, 14):
+#    del zones[i]
 zone_names = {
+              0 : 'whole_brain',
               1 : 'left_frontal',
               2 : 'right_frontal',
               3 : 'left_fronto-central',
@@ -190,7 +206,6 @@ zone_names = {
               11 : 'posterior_midline',
               12 : 'left_midline',
               13 : 'right_midline',
-              14 : 'whole_brain',
               }
 
 ### reading norms
@@ -210,7 +225,7 @@ print('now computing pairwise distances...')
 ### computing all distances
 distances = dict()
 all_combs = [tuple(sorted(v)) for v in itertools.combinations(norms[h].keys(), r=2)]
-for norm_type in ['word_length', 'semantic_category', 'concreteness', 'aoa']:
+for norm_type in ['OLD20', 'joint_corpora_raw_frequency', 'joint_corpora_log10_frequency', 'word_length', 'semantic_category', 'concreteness', 'aoa']:
     distances[norm_type] = dict()
     for w_one, w_two in all_combs:
         distances[norm_type][(w_one, w_two)] = abs(norms[norm_type][w_one] - norms[norm_type][w_two])
@@ -242,16 +257,37 @@ for h, h_scores in distances.items():
     similarities[h] = invert_and_norm_minus_one_one(h_scores.items())
     #similarities[h] = zero_one_norm(h_scores.items())
 
+### loaading similarities and scaling them
+for f in os.listdir('similarities'):
+    key = f.split('_')[0]
+    f_sims = dict()
+    with open(os.path.join('similarities', f)) as i:
+        counter = 0
+        for l in i:
+            if counter == 0:
+                counter += 1
+                continue
+            line = l.strip().split('\t')
+            f_sims[(line[0], line[1])] = float(line[2])
+    similarities[key] = norm_minus_one_one(f_sims.items())
+
 general_folder = 'rsa_plots'
 
 for model in [
-              'concreteness',
-              'semantic_category', 
-              'levenshtein',
-              'word_length', 
-              'aoa',
-              'perceptual',
+              #'concreteness',
+              #'semantic_category', 
+              #'levenshtein',
+              #'word_length', 
+              #'aoa',
+              #'perceptual',
+              #'fasttext', 
+              #'visual',
+              #'w2v'
+              'OLD20',
+              'joint_corpora_log10_frequency',
+              'joint_corpora_raw_frequency',
               ]:
+    print(model)
     out_folder = os.path.join(general_folder, model, args.evaluation)
     os.makedirs(out_folder, exist_ok=True)
 
@@ -321,15 +357,14 @@ for model in [
                 current_words = sorted(erp_data.keys())
                 if args.evaluation == 'correlation':
                     baseline = 0.
-                    combs = list(itertools.combinations(current_words, r=2))
-                    rsa_model = [distances[model][tuple(sorted(c))] for c in combs]
+                    #combs = list(itertools.combinations(current_words, r=2))
+                    #rsa_model = [distances[model][tuple(sorted(c))] for c in combs]
 
                     if args.debugging:
-                        results = map(compute_corrs, tqdm(range(erp.shape[-1])))
-
+                        results = map(compute_correlation, tqdm(range(erp.shape[-1])))
                     else:
                         with multiprocessing.Pool(processes=int(os.cpu_count()/3)) as pool:
-                            results = pool.map(compute_corrs, range(erp.shape[1]))
+                            results = pool.map(compute_correlation, range(erp.shape[1]))
                             pool.terminate()
                             pool.join()
                 elif args.evaluation == 'pairwise':
