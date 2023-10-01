@@ -52,10 +52,12 @@ def levenshtein(seq1, seq2):
                 )
     return (matrix[size_x - 1, size_y - 1])
 
-def compute_corrs(t):
+def compute_rsa(t):
     #print([sector_name, elecs])
     t_data = {k : v[elecs, t] for k, v in erp_data.items()}
-    t_corrs = [1-scipy.stats.pearsonr(t_data[w_one], t_data[w_two])[0] for w_one, w_two in combs]
+    ### z-scoring all items
+    current_data = z_score(t_data, [])
+    t_corrs = [scipy.stats.pearsonr(current_data[w_one], current_data[w_two])[0] for w_one, w_two in combs]
     corr = scipy.stats.pearsonr(rsa_model, t_corrs)[0]
     return (t, corr)
 
@@ -158,7 +160,7 @@ def zero_one_norm(vectors):
 parser = argparse.ArgumentParser()
 parser.add_argument('--folder', type=str, required=True)
 parser.add_argument('--debugging', action='store_true',)
-parser.add_argument('--evaluation', choices=['correlation', 'pairwise', 'ranking',], required=True)
+parser.add_argument('--evaluation', choices=['rsa', 'correlation', 'pairwise', 'ranking',], required=True)
 args = parser.parse_args()
 folder = os.path.join(args.folder, 'derivatives')
 
@@ -274,15 +276,15 @@ for f in os.listdir('similarities'):
 general_folder = 'rsa_plots'
 
 for model in [
-              #'concreteness',
-              #'semantic_category', 
-              #'levenshtein',
-              #'word_length', 
-              #'aoa',
-              #'perceptual',
-              #'fasttext', 
-              #'visual',
-              #'w2v'
+              'concreteness',
+              'semantic_category', 
+              'levenshtein',
+              'word_length', 
+              'aoa',
+              'perceptual',
+              'fasttext', 
+              'visual',
+              'w2v'
               'OLD20',
               'joint_corpora_log10_frequency',
               'joint_corpora_raw_frequency',
@@ -355,6 +357,18 @@ for model in [
                     continue
                 #avg_data = {k : numpy.average(v, axis=0) for k, v in erp_data.items()}
                 current_words = sorted(erp_data.keys())
+                if args.evaluation == 'rsa':
+                    baseline = 0.
+                    combs = list(itertools.combinations(current_words, r=2))
+                    rsa_model = [similarities[model][tuple(sorted(c))] for c in combs]
+
+                    if args.debugging:
+                        results = map(compute_rsa, tqdm(range(erp.shape[-1])))
+                    else:
+                        with multiprocessing.Pool(processes=int(os.cpu_count()/3)) as pool:
+                            results = pool.map(compute_rsa, range(erp.shape[1]))
+                            pool.terminate()
+                            pool.join()
                 if args.evaluation == 'correlation':
                     baseline = 0.
                     #combs = list(itertools.combinations(current_words, r=2))

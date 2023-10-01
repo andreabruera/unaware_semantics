@@ -115,13 +115,17 @@ for corpus in ['opensubs', 'wac']:
     freqs = pickle.load(open(os.path.join('..', 'psychorpus', 'pickles', 'it', 'it_{}_word_freqs.pkl'.format(corpus)), 'rb'))
     ratings['{}_raw_frequency'.format(corpus)] = dict()
     ratings['{}_log10_frequency'.format(corpus)] = dict()
-    for w in cats:
-        ratings['{}_raw_frequency'.format(corpus)][w] = [freqs[w]]
-        ratings['{}_log10_frequency'.format(corpus)][w] = [numpy.log10(freqs[w])]
+    for w in cats.keys():
+        freq = freqs[w]
+        ### also considering uppercase
+        if w.capitalize() in freqs.keys():
+            freq += freqs[w.capitalize()]
+        ratings['{}_raw_frequency'.format(corpus)][w] = [freq]
+        ratings['{}_log10_frequency'.format(corpus)][w] = [numpy.log10(freq)]
 
 ratings['joint_corpora_raw_frequency'] = dict()
 ratings['joint_corpora_log10_frequency'] = dict()
-for w in cats:
+for w in cats.keys():
     ratings['joint_corpora_raw_frequency'][w] = 0
     for corpus in ['opensubs', 'wac']:
         freq = ratings['{}_raw_frequency'.format(corpus)][w][0]
