@@ -10,6 +10,139 @@ from matplotlib import pyplot
 from scipy import spatial, stats
 from tqdm import tqdm
 
+def process_subject(s):
+    all_sectors = dict()
+
+    ### analyses are subject-level
+    for sector, elecs in tqdm(zones.items()):
+        sector_data = {c : list() for c in mapper.values()}
+        sector_name = zone_names[sector]
+        #for s in tqdm(range(1, 3)):
+
+        eeg_f = os.path.join(folder, 'sub-{:02}'.format(s),
+                              'sub-{:02}_task-namereadingimagery_eeg-epo.fif.gz'.format(s,))
+        raw_f = mne.read_epochs(
+                                eeg_f,
+                                verbose=False,
+                                preload=True,
+                                )
+        s_data = raw_f.get_data(picks='eeg')
+        s_data_unscaled = raw_f.get_data(picks='eeg')
+        ### Scaling 
+        s_data = mne.decoding.Scaler(raw_f.info, \
+                    scalings='mean'\
+                    ).fit_transform(s_data_unscaled)
+        xs = raw_f.times
+        events = raw_f.events
+        ### initializing ERPs
+        #if s == 1:
+        #    #erp_dict = {k : numpy.zeros(shape=s_data.shape[-2:]) for k in colors.keys()}
+        erp_dict = {k : dict() for k in colors.keys()}
+
+        events_f = os.path.join(folder, 'sub-{:02}'.format(s),
+                              'sub-{:02}_task-namereadingimagery_events.tsv'.format(s,))
+        with open(events_f) as i:
+            all_lines = [l.strip().split('\t') for l in i.readlines()]
+            header = all_lines[0]
+            #rel_keys = [header.index(idx) for idx in ['PAS_score', 'accuracy']]
+            rel_keys = [header.index(idx) for idx in ['PAS_score',]]
+            lines = all_lines[1:]
+        assert len(lines) == len(events)
+        for erp, line in zip(s_data, lines):
+            word = line[header.index('trial_type')]
+            if word in ['_', '']:
+                continue
+            for key in rel_keys:
+                if line[key] == '2':
+                    continue
+                case = mapper[line[key]]
+                if word not in erp_dict[case].keys():
+                    erp_dict[case][word] = list()
+                erp_dict[case][word].append(erp)
+                #if s > 1:
+                #    erp_dict[mapper[line[key]]] = erp_dict[mapper[line[key]]] / 2
+                ### just checking all is fine
+                #assert erp_dict[mapper[line[key]]].shape == s_data.shape[-2:]
+        current_erp_dict = {k : {word : numpy.mean(word_v, axis=0) for word, word_v in v.items()} for k, v in erp_dict.items()}
+        for k, v in current_erp_dict.items():
+            for word, word_v in v.items():
+                assert word_v.shape[-1] == xs.shape[0]
+
+        ### for each condition, computing RSA
+        for case, whole_erp_data in current_erp_dict.items():
+            if len(whole_erp_data.keys()) < 8:
+                continue
+            #avg_data = {k : numpy.average(v, axis=0) for k, v in erp_data.items()}
+            current_words = sorted(whole_erp_data.keys())
+            erp_data = {k : v[elecs, :] for k, v in whole_erp_data.items()}
+            if args.evaluation == 'rsa':
+                baseline = 0.
+                combs = list(itertools.combinations(current_words, r=2))
+                rsa_model = [similarities[model][tuple(sorted(c))] for c in combs]
+
+                #results = map(compute_rsa, range(erp.shape[-1]))
+                results = list()
+                for t in range(erp.shape[-1]):
+                    results.append(compute_rsa(t, erp_data, combs,rsa_model))
+                #if args.debugging:
+                #    results = map(compute_rsa, tqdm(range(erp.shape[-1])))
+                #else:
+                #    with multiprocessing.Pool(processes=int(os.cpu_count()/3)) as pool:
+                #        results = pool.map(compute_rsa, range(erp.shape[1]))
+                #        pool.terminate()
+                #        pool.join()
+            if args.evaluation == 'correlation':
+                baseline = 0.
+                #combs = list(itertools.combinations(current_words, r=2))
+                #rsa_model = [distances[model][tuple(sorted(c))] for c in combs]
+
+                results = list()
+                for t in range(erp.shape[-1]):
+                    results.append(compute_correlation(t, erp_data))
+                #results = map(compute_rsa, range(erp.shape[-1]))
+                #if args.debugging:
+                #    results = map(compute_correlation, range(erp.shape[-1]))
+                #else:
+                #    with multiprocessing.Pool(processes=int(os.cpu_count()/3)) as pool:
+                #        results = pool.map(compute_correlation, range(erp.shape[1]))
+                #        pool.terminate()
+                #        pool.join()
+            elif args.evaluation == 'pairwise':
+                baseline = .5
+                combs = list(itertools.combinations(current_words, r=2))
+                if model in norms.keys():
+                    if type(norms[model][word]) in [float]:
+                        combs = [c for c in combs if norms[model][c[0]]!=norms[model][c[1]]]
+                results = list()
+                for t in range(erp.shape[-1]):
+                    results.append(compute_pairwise(t, erp_data, combs))
+                #if args.debugging:
+                #    results = map(compute_pairwise, range(erp.shape[-1]))
+                #else:
+                #    with multiprocessing.Pool(processes=int(os.cpu_count()/3)) as pool:
+                #        results = pool.map(compute_pairwise, range(erp.shape[1]))
+                #        pool.terminate()
+                #        pool.join()
+            elif args.evaluation == 'ranking':
+                baseline = .5
+                results = list()
+                for t in range(erp.shape[-1]):
+                    results.append(compute_ranking(t, erp_data))
+                #if args.debugging:
+                #    results = map(compute_ranking, range(erp.shape[-1]))
+                #else:
+                #    with multiprocessing.Pool(processes=int(os.cpu_count()/3)) as pool:
+                #        results = pool.map(compute_ranking, range(erp.shape[1]))
+                #        pool.terminate()
+                #        pool.join()
+            corr_vec = [v[1] for v in sorted(results, key=lambda item : item[0])]
+
+            corr_vec = numpy.array(corr_vec)
+            sector_data[case] = corr_vec
+        all_sectors[sector_name] = sector_data
+    return all_sectors
+
+
 def rsa_encoding(current_data, test_items):
     predicted_vectors = list()
     for t in test_items:
@@ -52,21 +185,23 @@ def levenshtein(seq1, seq2):
                 )
     return (matrix[size_x - 1, size_y - 1])
 
-def compute_rsa(t):
+def compute_rsa(t, erp_data, combs,rsa_model):
     #print([sector_name, elecs])
-    t_data = {k : v[elecs, t] for k, v in erp_data.items()}
+    t_data = {k : v[:, t] for k, v in erp_data.items()}
     ### z-scoring all items
-    current_data = z_score(t_data, [])
+    #current_data = z_score(t_data, [])
+    current_data = t_data.copy()
     t_corrs = [scipy.stats.pearsonr(current_data[w_one], current_data[w_two])[0] for w_one, w_two in combs]
     corr = scipy.stats.pearsonr(rsa_model, t_corrs)[0]
     return (t, corr)
 
-def compute_correlation(t):
-    t_data = {k : v[elecs, t] for k, v in erp_data.items()}
+def compute_correlation(t, erp_data):
+    t_data = {k : v[:, t] for k, v in erp_data.items()}
     accuracies = list()
     for test_item in t_data.keys():
         ### z-scoring
         current_data = z_score(t_data, [test_item])
+        #current_data = t_data.copy()
         predictions = rsa_encoding(current_data, [test_item])
         predicted_vector = predictions[0]
 
@@ -77,12 +212,13 @@ def compute_correlation(t):
     #print(corr)
     return (t, corr)
 
-def compute_ranking(t):
-    t_data = {k : v[elecs, t] for k, v in erp_data.items()}
+def compute_ranking(t, erp_data):
+    t_data = {k : v[:, t] for k, v in erp_data.items()}
     accuracies = list()
     for test_item in t_data.keys():
         ### z-scoring
-        current_data = z_score(t_data, [test_item])
+        #current_data = z_score(t_data, [test_item])
+        current_data = t_data.copy()
         predictions = rsa_encoding(current_data, [test_item])
         predicted_vector = predictions[0]
 
@@ -95,13 +231,14 @@ def compute_ranking(t):
     #print(corr)
     return (t, corr)
 
-def compute_pairwise(t):
+def compute_pairwise(t, erp_data, combs):
     #print([sector_name, elecs])
-    t_data = {k : v[elecs, t] for k, v in erp_data.items()}
+    t_data = {k : v[:, t] for k, v in erp_data.items()}
     ### these are the test sets
     accuracies = list()
     for w_one, w_two in combs:
-        current_data = z_score(t_data, [w_one, w_two])
+        #current_data = z_score(t_data, [w_one, w_two])
+        current_data = t_data.copy()
         predictions = rsa_encoding(current_data, [w_one, w_two])
         pred_one = predictions[0]
         pred_two = predictions[1]
@@ -157,6 +294,7 @@ def zero_one_norm(vectors):
     vectors = {n : l for n, l in zip(names, norm_labels)}
     return vectors
 
+global args
 parser = argparse.ArgumentParser()
 parser.add_argument('--folder', type=str, required=True)
 parser.add_argument('--debugging', action='store_true',)
@@ -166,21 +304,26 @@ folder = os.path.join(args.folder, 'derivatives')
 
 subjects = list(range(1 ,45+1))
 #subjects = list(range(1 ,5+1))
+global colors
 colors = {
           'low' : 'seagreen',
           #'mid' : 'deepskyblue',
           'high' : 'hotpink',
           }
+global mapper
 mapper = {
           '1' : 'low',
           #'2' : 'mid',
           '3' : 'high',
           }
+global elec_mapper
 elec_mapper = ['A{}'.format(i) for i in range(1, 33)] +['B{}'.format(i) for i in range(1, 33)] +['C{}'.format(i) for i in range(1, 33)] +['D{}'.format(i) for i in range(1, 33)]
 elec_mapper = {e_i : e for e_i,e in enumerate(elec_mapper)}
+global inverse_mapper
 inverse_mapper = {v : k for k, v in elec_mapper.items()}
 
 ### read zones
+global zones
 zones = {i : list() for i in range(1, 14)}
 zones[0] = list(range(128))
 with open(os.path.join('data', 'ChanPos.tsv')) as i:
@@ -193,6 +336,7 @@ with open(os.path.join('data', 'ChanPos.tsv')) as i:
         zones[int(line[6])].append(inverse_mapper[line[0]])
 #for i in range(1, 14):
 #    del zones[i]
+global zone_names
 zone_names = {
               0 : 'whole_brain',
               1 : 'left_frontal',
@@ -211,6 +355,7 @@ zone_names = {
               }
 
 ### reading norms
+global norms
 with open(os.path.join('data', 'word_norms.tsv')) as i:
     counter = 0
     for l in i:
@@ -225,6 +370,7 @@ with open(os.path.join('data', 'word_norms.tsv')) as i:
 
 print('now computing pairwise distances...')
 ### computing all distances
+global distances
 distances = dict()
 all_combs = [tuple(sorted(v)) for v in itertools.combinations(norms[h].keys(), r=2)]
 for norm_type in ['OLD20', 'joint_corpora_raw_frequency', 'joint_corpora_log10_frequency', 'word_length', 'semantic_category', 'concreteness', 'aoa']:
@@ -254,6 +400,7 @@ for w_one, w_two in all_combs:
 
 ## turning distances into similarities
 ## in a scale from 1 to 2
+global similarities
 similarities = dict()
 for h, h_scores in distances.items():
     similarities[h] = invert_and_norm_minus_one_one(h_scores.items())
@@ -273,10 +420,13 @@ for f in os.listdir('similarities'):
             f_sims[(line[0], line[1])] = float(line[2])
     similarities[key] = norm_minus_one_one(f_sims.items())
 
+global general_folder
 general_folder = 'rsa_plots'
 
 for model in [
               'concreteness',
+              'joint_corpora_log10_frequency',
+              'joint_corpora_raw_frequency',
               'semantic_category', 
               'levenshtein',
               'word_length', 
@@ -284,131 +434,44 @@ for model in [
               'perceptual',
               'fasttext', 
               'visual',
-              'w2v'
+              'w2v',
               'OLD20',
-              'joint_corpora_log10_frequency',
-              'joint_corpora_raw_frequency',
               ]:
     print(model)
     out_folder = os.path.join(general_folder, model, args.evaluation)
     os.makedirs(out_folder, exist_ok=True)
+    if args.debugging:
+        results = map(process_subject, subjects)
+    else:
+        with multiprocessing.Pool(processes=int(os.cpu_count()/3)) as pool:
+            results = pool.map(process_subject, subjects)
+            pool.terminate()
+            pool.join()
 
-    ### analyses are subject-level
+    ### reading times
+    eeg_f = os.path.join(
+                         folder, 
+                         'sub-01',
+                         'sub-01_task-namereadingimagery_eeg-epo.fif.gz',
+                         )
+    raw_f = mne.read_epochs(
+                            eeg_f,
+                            verbose=False,
+                            preload=True,
+                            )
+    xs = raw_f.times
+    if args.evaluation in ['rsa', 'correlation']:
+        baseline = 0.
+    elif args.evaluation in ['pairwise', 'ranking']:
+        baseline = 0.5
+
+
     for sector, elecs in tqdm(zones.items()):
         sector_data = {c : list() for c in mapper.values()}
         sector_name = zone_names[sector]
-        #for s in tqdm(range(1, 3)):
-        for s in tqdm(subjects):
-
-            eeg_f = os.path.join(folder, 'sub-{:02}'.format(s),
-                                  'sub-{:02}_task-namereadingimagery_eeg-epo.fif.gz'.format(s,))
-            raw_f = mne.read_epochs(
-                                    eeg_f,
-                                    verbose=False,
-                                    preload=True,
-                                    )
-            s_data = raw_f.get_data(picks='eeg')
-            '''
-            s_data_unscaled = raw_f.get_data(picks='eeg')
-            ### Scaling 
-            s_data = mne.decoding.Scaler(raw_f.info, \
-                        scalings='mean'\
-                        ).fit_transform(s_data_unscaled)
-            '''
-            xs = raw_f.times
-            events = raw_f.events
-            ### initializing ERPs
-            if s == 1:
-                #erp_dict = {k : numpy.zeros(shape=s_data.shape[-2:]) for k in colors.keys()}
-                erp_dict = {k : dict() for k in colors.keys()}
-
-            events_f = os.path.join(folder, 'sub-{:02}'.format(s),
-                                  'sub-{:02}_task-namereadingimagery_events.tsv'.format(s,))
-            with open(events_f) as i:
-                all_lines = [l.strip().split('\t') for l in i.readlines()]
-                header = all_lines[0]
-                #rel_keys = [header.index(idx) for idx in ['PAS_score', 'accuracy']]
-                rel_keys = [header.index(idx) for idx in ['PAS_score',]]
-                lines = all_lines[1:]
-            assert len(lines) == len(events)
-            for erp, line in zip(s_data, lines):
-                word = line[header.index('trial_type')]
-                if word in ['_', '']:
-                    continue
-                for key in rel_keys:
-                    if line[key] == '2':
-                        continue
-                    case = mapper[line[key]]
-                    if word not in erp_dict[case].keys():
-                        erp_dict[case][word] = list()
-                    erp_dict[case][word].append(erp)
-                    #if s > 1:
-                    #    erp_dict[mapper[line[key]]] = erp_dict[mapper[line[key]]] / 2
-                    ### just checking all is fine
-                    #assert erp_dict[mapper[line[key]]].shape == s_data.shape[-2:]
-            current_erp_dict = {k : {word : numpy.mean(word_v, axis=0) for word, word_v in v.items()} for k, v in erp_dict.items()}
-            for k, v in current_erp_dict.items():
-                for word, word_v in v.items():
-                    assert word_v.shape[-1] == xs.shape[0]
-
-            ### for each condition, computing RSA on word length
-            for case, erp_data in current_erp_dict.items():
-                if len(erp_data.keys()) < 8:
-                    continue
-                #avg_data = {k : numpy.average(v, axis=0) for k, v in erp_data.items()}
-                current_words = sorted(erp_data.keys())
-                if args.evaluation == 'rsa':
-                    baseline = 0.
-                    combs = list(itertools.combinations(current_words, r=2))
-                    rsa_model = [similarities[model][tuple(sorted(c))] for c in combs]
-
-                    if args.debugging:
-                        results = map(compute_rsa, tqdm(range(erp.shape[-1])))
-                    else:
-                        with multiprocessing.Pool(processes=int(os.cpu_count()/3)) as pool:
-                            results = pool.map(compute_rsa, range(erp.shape[1]))
-                            pool.terminate()
-                            pool.join()
-                if args.evaluation == 'correlation':
-                    baseline = 0.
-                    #combs = list(itertools.combinations(current_words, r=2))
-                    #rsa_model = [distances[model][tuple(sorted(c))] for c in combs]
-
-                    if args.debugging:
-                        results = map(compute_correlation, tqdm(range(erp.shape[-1])))
-                    else:
-                        with multiprocessing.Pool(processes=int(os.cpu_count()/3)) as pool:
-                            results = pool.map(compute_correlation, range(erp.shape[1]))
-                            pool.terminate()
-                            pool.join()
-                elif args.evaluation == 'pairwise':
-                    baseline = .5
-                    combs = list(itertools.combinations(current_words, r=2))
-                    if model in norms.keys():
-                        if type(norms[model][word]) in [float]:
-                            combs = [c for c in combs if norms[model][c[0]]!=norms[model][c[1]]]
-                    if args.debugging:
-                        results = map(compute_pairwise, tqdm(range(erp.shape[-1])))
-
-                    else:
-                        with multiprocessing.Pool(processes=int(os.cpu_count()/3)) as pool:
-                            results = pool.map(compute_pairwise, range(erp.shape[1]))
-                            pool.terminate()
-                            pool.join()
-                elif args.evaluation == 'ranking':
-                    baseline = .5
-                    if args.debugging:
-                        results = map(compute_ranking, tqdm(range(erp.shape[-1])))
-
-                    else:
-                        with multiprocessing.Pool(processes=int(os.cpu_count()/3)) as pool:
-                            results = pool.map(compute_ranking, range(erp.shape[1]))
-                            pool.terminate()
-                            pool.join()
-                corr_vec = [v[1] for v in sorted(results, key=lambda item : item[0])]
-
-                corr_vec = numpy.array(corr_vec)
-                sector_data[case].append(corr_vec)
+        for r in results:
+            for k, v in r[sector_name].items():
+                sector_data[k].append(v)
 
         fig, ax = pyplot.subplots(figsize=(22,10), constrained_layout=True)
         for k, v in sector_data.items():

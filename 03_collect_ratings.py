@@ -130,7 +130,7 @@ for w in cats.keys():
     for corpus in ['opensubs', 'wac']:
         freq = ratings['{}_raw_frequency'.format(corpus)][w][0]
         ratings['joint_corpora_raw_frequency'][w] += freq
-    ratings['joint_corpora_log10_frequency'][w] = [ratings['joint_corpora_raw_frequency'][w]]
+    ratings['joint_corpora_log10_frequency'][w] = [numpy.log10(ratings['joint_corpora_raw_frequency'][w])]
     ratings['joint_corpora_raw_frequency'][w] = [ratings['joint_corpora_raw_frequency'][w]]
 
 ### computing OLD20
