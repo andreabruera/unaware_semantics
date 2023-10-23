@@ -1,6 +1,5 @@
-erp_plots
-rsa_plots
-
+plots/
+vectors/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

@@ -41,7 +41,7 @@ _, questions = read_words_and_triggers(return_questions=True)
 
 for folder in [
                'derivatives',
-               'sourcedata'
+               #'sourcedata'
                ]:
 
     out_folder = os.path.join(
@@ -52,7 +52,9 @@ for folder in [
 
     sub_files = dict()
 
-    for root, direc, filez in os.walk(os.path.join('..', 'unaware_semantics_bids', folder)):
+    full_f = os.path.join('..', '..', 'dataset', 'neuroscience', 'unaware_semantics_bids', folder)
+    assert os.path.exists(full_f)
+    for root, direc, filez in os.walk(full_f):
         for f in filez:
             #if 'events' in f and 'original' not in f:
             if 'events' in f:
@@ -120,6 +122,35 @@ for folder in [
     title = 'frequency of correct vs wrong answers'
     ax.set_title(title)
     pyplot.savefig(os.path.join(out_folder, 'correct_wrong.jpg'))
+    pyplot.clf()
+    pyplot.close()
+
+### easiest violinplot: correct vs wrong
+    colors = {
+              'low' : 'seagreen',
+              'mid' : 'deepskyblue',
+              'high' : 'hotpink',
+              }
+
+    lo = [len([1 for v in sub_data[s]['PAS_score'] if v=='1']) for s in sub_data.keys()]
+    mid = [len([1 for v in sub_data[s]['PAS_score'] if v=='2']) for s in sub_data.keys()]
+    hi = [len([1 for v in sub_data[s]['PAS_score'] if v=='3']) for s in sub_data.keys()]
+    fig, ax = pyplot.subplots(constrained_layout=True)
+    for x, y, label in [(0, lo, 'low'), (1, mid, 'mid'), (2, hi, 'high')]:
+        parts = ax.violinplot(y, positions=[x], showmeans=True, showextrema=False, )
+        for pc in parts['bodies']:
+            pc.set_facecolor(colors[label])
+            pc.set_edgecolor('grey')
+        parts['cmeans'].set_facecolor('grey')
+        parts['cmeans'].set_edgecolor('grey')
+        ax.bar(0., 0., color=colors[label], label=label)
+        ax.plot([x, x], [min(y), max(y)], color='grey')
+        ax.plot([x-.05, x+.05], [min(y), min(y)], color='grey')
+        ax.plot([x-.05, x+.05], [max(y), max(y)], color='grey')
+    ax.legend()
+    title = 'frequency of PAS scores'
+    ax.set_title(title)
+    pyplot.savefig(os.path.join(out_folder, 'frequency_PAS.jpg'))
     pyplot.clf()
     pyplot.close()
 

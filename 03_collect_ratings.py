@@ -2,6 +2,7 @@ import numpy
 import os
 import pickle
 
+from nltk.corpus import wordnet
 from tqdm import tqdm
 
 def levenshtein(seq1, seq2):
@@ -54,6 +55,9 @@ ratings = {
            'touch' : {w : list() for w in en_to_it.values()},
            'hearing' : {w : list() for w in en_to_it.values()},
            'taste' : {w : list() for w in en_to_it.values()},
+           'valence' : {w : list() for w in en_to_it.values()},
+           'arousal' : {w : list() for w in en_to_it.values()},
+           'dominance' : {w : list() for w in en_to_it.values()},
            }
 
 ### reading dataset conc
@@ -70,6 +74,7 @@ with open(os.path.join('data', 'brysbaert_conc.tsv')) as i:
             continue
         idx = header.index('Conc.M')
         ratings['concreteness'][en_to_it[word]].append(float(line[idx]))
+
 
 ### reading dataset aoa
 with open(os.path.join('data', 'kuperman_aoa.tsv')) as i:
@@ -108,7 +113,26 @@ with open(os.path.join('data', 'Lancaster_sensorimotor_norms_for_39707_words.tsv
         for k, dest in mapper.items():
             idx = header.index(k)
             ratings[dest][en_to_it[word]].append(float(line[idx]))
-
+### reading dataset #1
+mapper = {
+          'V.Mean.Sum' : 'valence',
+          'A.Mean.Sum' : 'arousal',
+          'D.Mean.Sum' : 'dominance',
+          }
+with open(os.path.join('data', 'BRM-emot-submit.csv')) as i:
+    counter = 0
+    for l in i:
+        line = l.strip().split(',')
+        if counter == 0:
+            header = [w.strip() for w in line]
+            counter += 1
+            continue
+        word = line[1].lower()
+        if word not in en_to_it.keys():
+            continue
+        for k, dest in mapper.items():
+            idx = header.index(k)
+            ratings[dest][en_to_it[word]].append(float(line[idx]))
 
 ### reading frequencies
 for corpus in ['opensubs', 'wac']:
@@ -156,7 +180,8 @@ with open(os.path.join('data', 'word_norms.tsv'), 'w') as o:
     for cat in ['OLD20', 'wac_raw_frequency', 'wac_log10_frequency', 
                 'opensubs_raw_frequency', 'opensubs_log10_frequency',
                 'joint_corpora_raw_frequency', 'joint_corpora_log10_frequency',
-                'aoa', 'concreteness', 'vision', 'smell', 'touch', 'taste', 'hearing']:
+                'aoa', 'concreteness', 'vision', 'smell', 'touch', 'taste', 'hearing',
+                'valence', 'arousal', 'dominance',]:
         o.write('{}\t'.format(cat))
     o.write('\n')
     for w, c in cats.items():
@@ -164,6 +189,7 @@ with open(os.path.join('data', 'word_norms.tsv'), 'w') as o:
         for cat in ['OLD20', 'wac_raw_frequency', 'wac_log10_frequency', 
                     'opensubs_raw_frequency', 'opensubs_log10_frequency',
                     'joint_corpora_raw_frequency', 'joint_corpora_log10_frequency',
-                    'aoa', 'concreteness', 'vision', 'smell', 'touch', 'taste', 'hearing']:
+                    'aoa', 'concreteness', 'vision', 'smell', 'touch', 'taste', 'hearing',
+                    'valence', 'arousal', 'dominance',]:
             o.write('{}\t'.format(ratings[cat][w][0]))
         o.write('\n')

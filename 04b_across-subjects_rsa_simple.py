@@ -10,14 +10,9 @@ from matplotlib import pyplot
 from scipy import spatial, stats
 from tqdm import tqdm
 
-def process_subject(s):
-    all_sectors = dict()
-
-    ### analyses are subject-level
-    for sector, elecs in tqdm(zones.items()):
-        sector_data = {c : list() for c in mapper.values()}
-        sector_name = zone_names[sector]
-        #for s in tqdm(range(1, 3)):
+def process_subjects():
+    erp_dict = {k : dict() for k in colors.keys()}
+    for s in tqdm(range(1, 45+1)):
 
         eeg_f = os.path.join(folder, 'sub-{:02}'.format(s),
                               'sub-{:02}_task-namereadingimagery_eeg-epo.fif.gz'.format(s,))
@@ -27,18 +22,16 @@ def process_subject(s):
                                 preload=True,
                                 )
         s_data = raw_f.get_data(picks='eeg')
-        if args.evaluation not in ['correlation', 'ranking', 'pairwise']:
-            s_data_unscaled = raw_f.get_data(picks='eeg')
-            ### Scaling 
-            s_data = mne.decoding.Scaler(raw_f.info, \
-                        scalings='mean'\
-                        ).fit_transform(s_data_unscaled)
+        s_data_unscaled = raw_f.get_data(picks='eeg')
+        ### Scaling 
+        s_data = mne.decoding.Scaler(raw_f.info, \
+                    scalings='mean'\
+                    ).fit_transform(s_data_unscaled)
         xs = raw_f.times
         events = raw_f.events
         ### initializing ERPs
         #if s == 1:
         #    #erp_dict = {k : numpy.zeros(shape=s_data.shape[-2:]) for k in colors.keys()}
-        erp_dict = {k : dict() for k in colors.keys()}
 
         events_f = os.path.join(folder, 'sub-{:02}'.format(s),
                               'sub-{:02}_task-namereadingimagery_events.tsv'.format(s,))
@@ -64,10 +57,16 @@ def process_subject(s):
                 #    erp_dict[mapper[line[key]]] = erp_dict[mapper[line[key]]] / 2
                 ### just checking all is fine
                 #assert erp_dict[mapper[line[key]]].shape == s_data.shape[-2:]
-        current_erp_dict = {k : {word : numpy.mean(word_v, axis=0) for word, word_v in v.items()} for k, v in erp_dict.items()}
-        for k, v in current_erp_dict.items():
-            for word, word_v in v.items():
-                assert word_v.shape[-1] == xs.shape[0]
+    current_erp_dict = {k : {word : numpy.mean(word_v, axis=0) for word, word_v in v.items()} for k, v in erp_dict.items()}
+    for k, v in current_erp_dict.items():
+        for word, word_v in v.items():
+            assert word_v.shape[-1] == xs.shape[0]
+    all_sectors = dict()
+
+    ### analyses are across subjects
+    for sector, elecs in tqdm(zones.items()):
+        sector_data = {c : list() for c in mapper.values()}
+        sector_name = zone_names[sector]
 
         ### for each condition, computing RSA
         for case, whole_erp_data in current_erp_dict.items():
@@ -200,13 +199,14 @@ def compute_correlation(t, erp_data):
     t_data = {k : v[:, t] for k, v in erp_data.items()}
     accuracies = list()
     for test_item in t_data.keys():
-        ### z-scoring items to be used for sum
+        ### z-scoring
         current_data = z_score(t_data, [test_item])
-        #current_data = zscore_t_data.copy()
+        #current_data = t_data.copy()
         predictions = rsa_encoding(current_data, [test_item])
         predicted_vector = predictions[0]
 
         score = scipy.stats.pearsonr(predicted_vector, t_data[test_item])[0]
+        #score = scipy.stats.spearmanr(predicted_vector, t_data[test_item])[0]
 
         accuracies.append(score)
     corr = numpy.average(accuracies)
@@ -218,8 +218,8 @@ def compute_ranking(t, erp_data):
     accuracies = list()
     for test_item in t_data.keys():
         ### z-scoring
-        current_data = z_score(t_data, [test_item])
-        #current_data = t_data.copy()
+        #current_data = z_score(t_data, [test_item])
+        current_data = t_data.copy()
         predictions = rsa_encoding(current_data, [test_item])
         predicted_vector = predictions[0]
 
@@ -430,41 +430,35 @@ for f in os.listdir('similarities'):
                 counter += 1
                 continue
             line = l.strip().split('\t')
-            f_sims[(line[0], line[1])] = float(line[3])
+            f_sims[(line[0], line[1])] = float(line[2])
     similarities[key] = norm_minus_one_one(f_sims.items())
 
 global general_folder
-general_folder = 'rsa_plots'
+general_folder = 'across-subject-rsa_plots'
 
 for model in [
-              #'wac_log10_frequency',
-              #'wac_raw_frequency',
-              #'opensubs_log10_frequency',
-              #'opensubs_raw_frequency',
-              #'w2v',
-              #'concreteness',
-              #'joint_corpora_log10_frequency',
-              #'joint_corpora_raw_frequency',
-              #'semantic_category', 
-              #'levenshtein',
-              #'word_length', 
-              #'aoa',
-              #'perceptual',
+              'wac_log10_frequency',
+              'wac_raw_frequency',
+              'opensubs_log10_frequency',
+              'opensubs_raw_frequency',
+              'w2v',
+              'concreteness',
+              'joint_corpora_log10_frequency',
+              'joint_corpora_raw_frequency',
+              'semantic_category', 
+              'levenshtein',
+              'word_length', 
+              'aoa',
+              'perceptual',
               'fasttext', 
-              #'fasttext-aligned', 
-              #'visual',
-              #'OLD20',
+              'fasttext-aligned', 
+              'visual',
+              'OLD20',
               ]:
     print(model)
     out_folder = os.path.join(general_folder, model, args.evaluation)
     os.makedirs(out_folder, exist_ok=True)
-    if args.debugging:
-        results = map(process_subject, subjects)
-    else:
-        with multiprocessing.Pool(processes=int(os.cpu_count()/3)) as pool:
-            results = pool.map(process_subject, subjects)
-            pool.terminate()
-            pool.join()
+    results = process_subjects()
 
     ### reading times
     eeg_f = os.path.join(
@@ -487,9 +481,8 @@ for model in [
     for sector, elecs in tqdm(zones.items()):
         sector_data = {c : list() for c in mapper.values()}
         sector_name = zone_names[sector]
-        for r in results:
-            for k, v in r[sector_name].items():
-                sector_data[k].append(v)
+        for k, v in results[sector_name].items():
+            sector_data[k].append(v)
 
         fig, ax = pyplot.subplots(figsize=(22,10), constrained_layout=True)
         for k, v in sector_data.items():
