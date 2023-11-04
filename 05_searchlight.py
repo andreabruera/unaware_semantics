@@ -88,11 +88,12 @@ def process_subject(current_args):
                     erp_dict[case][word] = list()
                 erp_dict[case][word].append(erp)
             ### joint
-            joint_case = '{}_{}'.format(line[rel_keys[0]], line[rel_keys[1]])
-            if joint_case in mapper.keys():
-                if word not in erp_dict[mapper[joint_case]].keys():
-                    erp_dict[mapper[joint_case]][word] = list()
-                erp_dict[mapper[joint_case]][word].append(erp)
+            if min_val <4:
+                joint_case = '{}_{}'.format(line[rel_keys[0]], line[rel_keys[1]])
+                if joint_case in mapper.keys():
+                    if word not in erp_dict[mapper[joint_case]].keys():
+                        erp_dict[mapper[joint_case]][word] = list()
+                    erp_dict[mapper[joint_case]][word].append(erp)
         current_erp_dict = {k : {word : numpy.mean(word_v, axis=0) for word, word_v in v.items() if len(word_v)>=min_val} for k, v in erp_dict.items()}
         for k, v in current_erp_dict.items():
             for word, word_v in v.items():
@@ -267,7 +268,10 @@ def compute_ridge_correlation(t, erp_data):
             train_input = [numpy.array([t]) for t in train_input]
         train_target = [current_data[w] for w in train_items]
         ridge.fit(train_input, train_target)
-        predicted_vector = ridge.predict([numpy.array([vectors[model][test_item]])])[0]
+        test_input = [vectors[model][test_item]]
+        if model not in ['wordnet', 'fasttext']:
+            test_input = numpy.array([test_input])
+        predicted_vector = ridge.predict(test_input)[0]
 
         score = scipy.stats.pearsonr(predicted_vector, t_data[test_item])[0]
 
@@ -368,18 +372,6 @@ folder = os.path.join(args.folder, 'derivatives')
 
 subjects = list(range(1 ,45+1))
 #subjects = list(range(1 ,5+1))
-global mapper
-mapper = {
-          '1' : 'low',
-          '3' : 'high',
-          'correct' : 'correct',
-          'wrong' : 'wrong',
-          '1_correct' : 'low_correct',
-          '1_wrong' : 'low_wrong',
-          '3_correct' : 'high_correct',
-          '3_wrong' : 'high_wrong',
-          #'2' : 'mid',
-          }
 
 ### reading norms
 global norms
@@ -503,19 +495,39 @@ for w in vectors['fasttext'].keys():
 ### 20mm vs 30mm
 ### 75ms vs 100ms vs 125ms vs 150ms
 
-for temp_cluster in [
-                     'temporal_cluster', 
-                     'isolated_time_points',
-                     ]:
-    for regression_model in [
-                             'ridge', 
-                             'rsa',
-                             ]:
+for regression_model in [
+                        #'ridge', 
+                         'rsa',
+                         ]:
+    for temp_cluster in [
+                         'temporal_cluster', 
+                         'isolated_time_points',
+                         ]:
         for min_val in [
-                        1,
+                        #1,
                         2,
-                        4,
+                        #4,
                         ]:
+            global mapper
+            if min_val >= 2:
+                mapper = {
+                      '1' : 'low',
+                      '3' : 'high',
+                      'correct' : 'correct',
+                      'wrong' : 'wrong',
+                      }
+            else:
+                mapper = {
+                      '1' : 'low',
+                      '3' : 'high',
+                      'correct' : 'correct',
+                      'wrong' : 'wrong',
+                      '1_correct' : 'low_correct',
+                      '1_wrong' : 'low_wrong',
+                      '3_correct' : 'high_correct',
+                      '3_wrong' : 'high_wrong',
+                      #'2' : 'mid',
+                      }
             for space in [30, 20]:
                 for time in [100, 75, 125, 150]:
                     global time_clusters
@@ -608,9 +620,9 @@ for temp_cluster in [
                                   #'concreteness',
                                   #'joint_corpora_log10_frequency',
                                   #'joint_corpora_raw_frequency',
+                                  'fasttext', 
                                   'OLD20',
                                   'semantic_category', 
-                                  'fasttext', 
                                   'visual',
                                   'wordnet',
                                   #'levenshtein',
@@ -635,7 +647,7 @@ for temp_cluster in [
                         if args.debugging:
                             results = map(process_subject, current_args)
                         else:
-                            max_procs = 4 if regression_model=='ridge' else 3
+                            max_procs = 40 if regression_model=='ridge' else 3
                             with multiprocessing.Pool(processes=int(os.cpu_count()/max_procs)) as pool:
                                 results = pool.map(process_subject, current_args)
                                 pool.terminate()
@@ -672,6 +684,7 @@ for temp_cluster in [
                                     adjacency=mne_adj_matrix,
                                     threshold=dict(start=0, step=0.2), 
                                     n_jobs=os.cpu_count()-1, 
+                                    n_permutations=4096,
                                     )
                             #print('Minimum p-value for {}: {}'.format(args.input_target_model, min(p_values)))
 
