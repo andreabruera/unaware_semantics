@@ -113,6 +113,7 @@ with open(os.path.join('data', 'Lancaster_sensorimotor_norms_for_39707_words.tsv
         for k, dest in mapper.items():
             idx = header.index(k)
             ratings[dest][en_to_it[word]].append(float(line[idx]))
+
 ### reading dataset #1
 mapper = {
           'V.Mean.Sum' : 'valence',

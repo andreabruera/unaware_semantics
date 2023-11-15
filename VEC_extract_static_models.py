@@ -31,6 +31,10 @@ os.makedirs(vec_folder, exist_ok=True)
 
 ###fasttext
 ft = fasttext.load_model(os.path.join('/', 'import', 'cogsci', 'andrea', 'dataset', 'word_vectors', 'it', "cc.it.300.bin"))
+ft_zscored = {w : ft[w] for w in words}
+ft_mean = numpy.average([v for v in ft_zscored.values()], axis=0)
+ft_std = numpy.std([v for v in ft_zscored.values()], axis=0)
+ft_zscored = {k : (v*ft_mean)/ft_std for k, v in ft_zscored.items()}
 aligned_ft_file = os.path.join('/', 'import', 'cogsci', 'andrea', 'dataset', 'word_vectors', 'it', "wiki.it.align.vec")
 aligned_ft = dict()
 with open(aligned_ft_file) as i:
@@ -42,11 +46,17 @@ with open(aligned_ft_file) as i:
 
 w2v = Word2Vec.load(os.path.join('/', 'import', 'cogsci', 'andrea', 'dataset', 'word_vectors', 'it', 'word2vec_it_opensubs+wac_param-mandera2017', 'word2vec_it_opensubs+wac_param-mandera2017.model'))
 baroni_w2v = Word2Vec.load(os.path.join('/', 'import', 'cogsci', 'andrea', 'dataset', 'word_vectors', 'it', 'word2vec_it_opensubs+wac_param-baroni2014_min-count-50', 'word2vec_it_opensubs+wac_param-baroni2014_min-count-50.model'))
+w2v_zscored = {w : w2v.wv[w] for w in words}
+w2v_mean = numpy.average([v for v in w2v_zscored.values()], axis=0)
+w2v_std = numpy.std([v for v in w2v_zscored.values()], axis=0)
+w2v_zscored = {k : (v*w2v_mean)/w2v_std for k, v in w2v_zscored.items()}
 
 for model_name, model in [
                           ['fasttext', ft], 
+                          ['fasttext-zscored', ft_zscored], 
                           ['fasttext-aligned', aligned_ft], 
                           ['w2v', w2v],
+                          ['w2v-zscored', w2v_zscored],
                           ['w2v-baroni', baroni_w2v]
                           ]:
 
@@ -54,7 +64,7 @@ for model_name, model in [
     combs = [tuple(sorted(k)) for k in itertools.combinations(words, 2)]
     sims = dict()
     for c in tqdm(combs):
-        if 'fasttext' in model_name:
+        if 'fasttext' in model_name or 'zscored' in model_name:
             vec_one = model[c[0]]
             vec_two = model[c[1]]
         elif 'w2v' in model_name:
