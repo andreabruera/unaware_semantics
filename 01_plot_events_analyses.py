@@ -227,8 +227,8 @@ for folder in [
     d_primes = {s : list() for s in sub_data.keys()}
 
     for s in sub_data.keys():
-        current_corr = len([1 for s_p, s_a, req in zip(sub_data[s]['PAS_score'], sub_data[s]['accuracy'], sub_data[s]['required_answer']) if s_p=='1' and s_a=='correct' and req=='YES']) / len([1 for req in sub_data[s]['required_answer'] if req=='YES'])
-        current_wrong = len([1 for s_p, s_a, req in zip(sub_data[s]['PAS_score'], sub_data[s]['accuracy'], sub_data[s]['required_answer']) if s_p=='1' and s_a=='wrong' and req=='NO']) / len([1 for req in sub_data[s]['required_answer'] if req=='NO'])
+        current_corr = (len([1 for s_p, s_a, req in zip(sub_data[s]['PAS_score'], sub_data[s]['accuracy'], sub_data[s]['required_answer']) if s_p=='1' and s_a=='correct' and req=='YES'])+1.) / len([1 for req in sub_data[s]['required_answer'] if req=='YES'])
+        current_wrong = (len([1 for s_p, s_a, req in zip(sub_data[s]['PAS_score'], sub_data[s]['accuracy'], sub_data[s]['required_answer']) if s_p=='1' and s_a=='wrong' and req=='NO'])+1.) / len([1 for req in sub_data[s]['required_answer'] if req=='NO'])
         z_hit = stats.norm.ppf(current_corr)
         z_fa = stats.norm.ppf(current_wrong)
         try:
@@ -251,8 +251,8 @@ for folder in [
         if str(d_prime) not in ['inf', '-inf', 'nan']:
             mids.append(d_prime)
         ### tops
-        current_corr = len([1 for s_p, s_a, req in zip(sub_data[s]['PAS_score'], sub_data[s]['accuracy'], sub_data[s]['required_answer']) if s_p=='3' and s_a=='correct' and req=='YES']) / len([1 for req in sub_data[s]['required_answer'] if req=='YES'])
-        current_wrong = len([1 for s_p, s_a, req in zip(sub_data[s]['PAS_score'], sub_data[s]['accuracy'], sub_data[s]['required_answer']) if s_p=='3' and s_a=='wrong' and req=='NO']) / len([1 for req in sub_data[s]['required_answer'] if req=='NO'])
+        current_corr = (len([1 for s_p, s_a, req in zip(sub_data[s]['PAS_score'], sub_data[s]['accuracy'], sub_data[s]['required_answer']) if s_p=='3' and s_a=='correct' and req=='YES'])+1.) / len([1 for req in sub_data[s]['required_answer'] if req=='YES'])
+        current_wrong = (len([1 for s_p, s_a, req in zip(sub_data[s]['PAS_score'], sub_data[s]['accuracy'], sub_data[s]['required_answer']) if s_p=='3' and s_a=='wrong' and req=='NO'])+1.) / len([1 for req in sub_data[s]['required_answer'] if req=='NO'])
         z_hit = stats.norm.ppf(current_corr)
         z_fa = stats.norm.ppf(current_wrong)
         try:
@@ -280,6 +280,12 @@ for folder in [
     pyplot.savefig(os.path.join(out_folder, 'd-prime_per_pas.jpg'))
     pyplot.clf()
     pyplot.close()
+
+    ### writing to file d-primes
+    with open(os.path.join(out_folder, 'd-prime_per_subject.tsv'), 'w') as o:
+        o.write('subject\tlow_awareness_d-prime\tmid_awareness_d-prime\thigh_awareness_d-prime\n')
+        for s, dprimes in d_primes.items():
+            o.write('{}\t{}\t{}\t{}\n'.format(s, dprimes[0], dprimes[1], dprimes[2]))
 
 ### violinplot: RTs correct vs wrong
     colors = {

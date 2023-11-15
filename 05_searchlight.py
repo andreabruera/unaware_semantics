@@ -83,6 +83,9 @@ def process_searchlight_subject(current_args):
 
         ### for each condition, computing RSA
         for case, whole_erp_data in current_erp_dict.items():
+            if 'high' in case and s not in high_subjects:
+                #print(s)
+                continue
             #if len(whole_erp_data.keys()) < 8:
             #    continue
             #if len(whole_erp_data.keys()) < 20:
@@ -176,6 +179,19 @@ args = parser.parse_args()
 folder = os.path.join(args.folder, 'derivatives')
 
 subjects = list(range(1 ,45+1))
+#subjects = list(range(1 ,10+1))
+high_subjects = list()
+### removing subjects that did task wrongly
+with open(os.path.join('plots_events_analyses', 'derivatives', 'd-prime_per_subject.tsv')) as o:
+    for l_i, l in enumerate(o):
+        if l_i == 0:
+            continue
+        line = l.strip().split('\t')
+        subject = int(line[0])
+        high_awareness = float(line[3])
+        if high_awareness > 0.5:
+            high_subjects.append(subject)
+print('removing {} subjects in the high condition because d-primes are too low'.format(45-len(high_subjects)))
 
 ### reading norms
 global norms
@@ -381,20 +397,24 @@ for regression_model in [
 
                         ### reconstructing results
                         all_results = {case : numpy.empty(shape=(45, time_points, 128)) for case in mapper.values()}
+                        to_be_removed = {case : list() for case in mapper.values()}
+                        
                         for s_i, s in enumerate(results):
-                            to_be_removed = set()
                             s_results = {case : numpy.empty(shape=(128, time_points)) for case in mapper.values()}
                             for elec_idx, elec_results in s.items():
                                 for case, case_results in elec_results.items():
+                                    ### subject with insufficient data
                                     if len(case_results) != time_points:
-                                        print(case)
-                                        to_be_removed.add(case)
-                                        continue
-                                    s_results[case][elec_idx] = case_results
-                            for remove in to_be_removed:
-                                del all_results[remove]
+                                        to_be_removed[case].append(s_i)
+                                    ### subject with no probz
+                                    else:
+                                        s_results[case][elec_idx] = case_results
                             for case, case_results in s_results.items():
                                 all_results[case][s_i] = case_results.T
+                        ### removing missing subjects
+                        for case, remove_subs in to_be_removed.items():
+                            to_keep = [i for i in range(45) if i not in remove_subs]
+                            all_results[case] = all_results[case][to_keep, :, :]
 
                         ### plotting each condition separately
                         if args.evaluation in ['rsa', 'correlation']:
@@ -404,6 +424,7 @@ for regression_model in [
 
                         for case, case_results in all_results.items():
                             print(case)
+                            print('considering {} subjects'.format(len(to_keep)))
                             t_stats, _, p_values, _ = mne.stats.spatio_temporal_cluster_1samp_test(
                                     case_results-baseline,
                                     tail=1, 
