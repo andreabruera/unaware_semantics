@@ -225,42 +225,32 @@ for folder in [
     highs = list()
 
     d_primes = {s : list() for s in sub_data.keys()}
+    ### smoothing d-primes following Hutus 1995
+    ### 1 is added to each cell before division
+    ### to avoid having 0s
 
     for s in sub_data.keys():
-        current_corr = (len([1 for s_p, s_a, req in zip(sub_data[s]['PAS_score'], sub_data[s]['accuracy'], sub_data[s]['required_answer']) if s_p=='1' and s_a=='correct' and req=='YES'])+1.) / len([1 for req in sub_data[s]['required_answer'] if req=='YES'])
-        current_wrong = (len([1 for s_p, s_a, req in zip(sub_data[s]['PAS_score'], sub_data[s]['accuracy'], sub_data[s]['required_answer']) if s_p=='1' and s_a=='wrong' and req=='NO'])+1.) / len([1 for req in sub_data[s]['required_answer'] if req=='NO'])
-        z_hit = stats.norm.ppf(current_corr)
-        z_fa = stats.norm.ppf(current_wrong)
-        try:
+        for _, pas_val in enumerate(['1', '2', '3']):
+            ### hits
+            hits = len([1 for s_p, s_a, req in zip(sub_data[s]['PAS_score'], sub_data[s]['accuracy'], sub_data[s]['required_answer']) if s_p=='1' and s_a=='correct' and req=='YES'])
+            total_yes = len([1 for req in sub_data[s]['required_answer'] if req=='YES'])
+            hit_rate = (hits + 1) / total_yes
+            z_hit = stats.norm.ppf(hit_rate)
+            ### false alarms
+            false_alarms = len([1 for s_p, s_a, req in zip(sub_data[s]['PAS_score'], sub_data[s]['accuracy'], sub_data[s]['required_answer']) if s_p=='1' and s_a=='wrong' and req=='NO'])
+            total_no = len([1 for req in sub_data[s]['required_answer'] if req=='NO'])
+            false_alarms_rate = (false_alarms + 1) / total_no
+            z_fa = stats.norm.ppf(false_alarms_rate)
+            ### d-prime
             d_prime = z_hit - z_fa
-        except FloatingPointError:
-            d_prime = numpy.nan
-        d_primes[s].append(d_prime)
-        if str(d_prime) not in ['inf', '-inf', 'nan']:
-            lows.append(d_prime)
-        ### mid
-        current_corr = len([1 for s_p, s_a, req in zip(sub_data[s]['PAS_score'], sub_data[s]['accuracy'], sub_data[s]['required_answer']) if s_p=='2' and s_a=='correct' and req=='YES']) / len([1 for req in sub_data[s]['required_answer'] if req=='YES'])
-        current_wrong = len([1 for s_p, s_a, req in zip(sub_data[s]['PAS_score'], sub_data[s]['accuracy'], sub_data[s]['required_answer']) if s_p=='2' and s_a=='wrong' and req=='NO']) / len([1 for req in sub_data[s]['required_answer'] if req=='NO'])
-        z_hit = stats.norm.ppf(current_corr)
-        z_fa = stats.norm.ppf(current_wrong)
-        try:
-            d_prime = z_hit - z_fa
-        except FloatingPointError:
-            d_prime = numpy.nan
-        d_primes[s].append(d_prime)
-        if str(d_prime) not in ['inf', '-inf', 'nan']:
-            mids.append(d_prime)
-        ### tops
-        current_corr = (len([1 for s_p, s_a, req in zip(sub_data[s]['PAS_score'], sub_data[s]['accuracy'], sub_data[s]['required_answer']) if s_p=='3' and s_a=='correct' and req=='YES'])+1.) / len([1 for req in sub_data[s]['required_answer'] if req=='YES'])
-        current_wrong = (len([1 for s_p, s_a, req in zip(sub_data[s]['PAS_score'], sub_data[s]['accuracy'], sub_data[s]['required_answer']) if s_p=='3' and s_a=='wrong' and req=='NO'])+1.) / len([1 for req in sub_data[s]['required_answer'] if req=='NO'])
-        z_hit = stats.norm.ppf(current_corr)
-        z_fa = stats.norm.ppf(current_wrong)
-        try:
-            d_prime = z_hit - z_fa
-        except FloatingPointError:
-            d_prime = numpy.nan
-        d_primes[s].append(d_prime)
-        highs.append(d_prime)
+            assert str(d_prime) not in ['inf', '-inf', 'nan']
+            d_primes[s].append(d_prime)
+            if _ == 0:
+                lows.append(d_prime)
+            elif _ == 1:
+                mids.append(d_prime)
+            elif _ == 2:
+                highs.append(d_prime)
 
     fig, ax = pyplot.subplots(constrained_layout=True)
     for x, y, label in [(0, lows, 'low'), (1, mids, 'mid'), (2, highs, 'high')]:

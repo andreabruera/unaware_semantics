@@ -205,14 +205,19 @@ norms, vectors, similarities, distances = read_norms_vectors_sims_dists()
 ### 20mm vs 30mm
 ### 75ms vs 100ms vs 125ms vs 150ms
 
-for subject_correction in ['d0.25', 'd0.5', 'all_subjects']:
+for subject_correction in [
+                           'd0.25', 
+                           'd0.5', 
+                           'd0.75', 
+                           'all_subjects',
+                           ]:
     for regression_model in [
                              #'ridge', 
                              'rsa',
                              ]:
         for temp_cluster in [
                              'temporal_cluster', 
-                             #'isolated_time_points',
+                             'isolated_time_points',
                              ]:
             for min_val in [
                             1,
