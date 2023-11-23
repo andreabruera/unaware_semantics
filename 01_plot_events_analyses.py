@@ -247,11 +247,11 @@ for folder in [
             #if str(d_prime) in ['inf', '-inf', 'nan']:
             #    d_prime = 0.
             d_primes[s].append(d_prime)
-            if _ == 0:
+            if pas_val == '1':
                 lows.append(d_prime)
-            elif _ == 1:
+            elif pas_val == '2':
                 mids.append(d_prime)
-            elif _ == 2:
+            elif pas_val == '3':
                 highs.append(d_prime)
 
     fig, ax = pyplot.subplots(constrained_layout=True)
