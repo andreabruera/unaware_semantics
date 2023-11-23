@@ -29,6 +29,26 @@ os.makedirs(out_folder, exist_ok=True)
 vec_folder = 'vectors'
 os.makedirs(vec_folder, exist_ok=True)
 
+
+concept_net = dict()
+with open(os.path.join('..', '..', 'dataset', 'word_vectors', 'numberbatch-19.08.txt')) as i:
+    for l_i, l in enumerate(i):
+        if l_i == 0:
+            continue
+        line = l.strip().split(' ')
+        lang_word = line[0].split('/')
+        lang = lang_word[-2]
+        word = lang_word[-1]
+        if lang == 'it' and word in words:
+            vec = numpy.array(line[1:], dtype=numpy.float64)
+            concept_net[word] = vec
+for w in words:
+    assert w in concept_net.keys()
+cn_mean = numpy.average([v for v in concept_net.values()], axis=0)
+cn_std = numpy.std([v for v in concept_net.values()], axis=0)
+cn_zscored = {k : (v*cn_mean)/cn_std for k, v in concept_net.items()}
+
+'''
 ###fasttext
 ft = fasttext.load_model(os.path.join('/', 'import', 'cogsci', 'andrea', 'dataset', 'word_vectors', 'it', "cc.it.300.bin"))
 ft_zscored = {w : ft[w] for w in words}
@@ -50,21 +70,24 @@ w2v_zscored = {w : w2v.wv[w] for w in words}
 w2v_mean = numpy.average([v for v in w2v_zscored.values()], axis=0)
 w2v_std = numpy.std([v for v in w2v_zscored.values()], axis=0)
 w2v_zscored = {k : (v*w2v_mean)/w2v_std for k, v in w2v_zscored.items()}
+'''
 
 for model_name, model in [
-                          ['fasttext', ft], 
-                          ['fasttext-zscored', ft_zscored], 
-                          ['fasttext-aligned', aligned_ft], 
-                          ['w2v', w2v],
-                          ['w2v-zscored', w2v_zscored],
-                          ['w2v-baroni', baroni_w2v]
+                          #['fasttext', ft], 
+                          #['fasttext-zscored', ft_zscored], 
+                          #['fasttext-aligned', aligned_ft], 
+                          #['w2v', w2v],
+                          #['w2v-zscored', w2v_zscored],
+                          #['w2v-baroni', baroni_w2v],
+                          ['conceptnet', concept_net],
+                          ['conceptnet-zscored', cn_zscored],
                           ]:
 
     print('Now computing pairwise similarities...')
     combs = [tuple(sorted(k)) for k in itertools.combinations(words, 2)]
     sims = dict()
     for c in tqdm(combs):
-        if 'fasttext' in model_name or 'zscored' in model_name:
+        if 'fasttext' in model_name or 'zscored' in model_name or 'concept' in model_name:
             vec_one = model[c[0]]
             vec_two = model[c[1]]
         elif 'w2v' in model_name:

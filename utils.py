@@ -90,13 +90,16 @@ def compute_rsa_correlation(t, erp_data, model):
         predicted_vector = predictions[0]
 
         score = scipy.stats.pearsonr(predicted_vector, t_data[test_item])[0]
+        if str(score) == 'nan':
+            print('corrected')
+            score = 0.
 
         accuracies.append(score)
     corr = numpy.average(accuracies)
     #print(corr)
     return (t, corr)
 
-def compute_ridge_correlation(t, erp_data):
+def compute_ridge_correlation(t, erp_data, model):
     t_data = {k : v[:, t].flatten() for k, v in erp_data.items()}
     accuracies = list()
     for test_item in t_data.keys():
@@ -105,14 +108,16 @@ def compute_ridge_correlation(t, erp_data):
         #current_data = t_data.copy()
         ridge = sklearn.linear_model.RidgeCV(alphas=(0.01, 0.1, 1., 10, 100., 1000))
         train_items = [w for w in current_data.keys() if w!=test_item]
-        train_input = [vectors[model][w] for w in train_items]
         if model not in ['visual', 'wordnet', 'fasttext']:
             train_input = [numpy.array([t]) for t in train_input]
+        else:
+            train_input = [vectors[model][w] for w in train_items]
         train_target = [current_data[w] for w in train_items]
         ridge.fit(train_input, train_target)
-        test_input = [vectors[model][test_item]]
         if model not in ['visual', 'wordnet', 'fasttext']:
             test_input = numpy.array([test_input])
+        else:
+            test_input = [vectors[model][test_item]]
         predicted_vector = ridge.predict(test_input)[0]
 
         score = scipy.stats.pearsonr(predicted_vector, t_data[test_item])[0]

@@ -232,18 +232,20 @@ for folder in [
     for s in sub_data.keys():
         for _, pas_val in enumerate(['1', '2', '3']):
             ### hits
-            hits = len([1 for s_p, s_a, req in zip(sub_data[s]['PAS_score'], sub_data[s]['accuracy'], sub_data[s]['required_answer']) if s_p=='1' and s_a=='correct' and req=='YES'])
-            total_yes = len([1 for req in sub_data[s]['required_answer'] if req=='YES'])
+            hits = len([1 for s_p, s_a, req in zip(sub_data[s]['PAS_score'], sub_data[s]['accuracy'], sub_data[s]['required_answer']) if s_p==pas_val and s_a=='correct' and req=='YES'])
+            total_yes = len([1 for s_p, req in zip(sub_data[s]['PAS_score'], sub_data[s]['required_answer']) if req=='YES'])
             hit_rate = (hits + 1) / total_yes
             z_hit = stats.norm.ppf(hit_rate)
             ### false alarms
-            false_alarms = len([1 for s_p, s_a, req in zip(sub_data[s]['PAS_score'], sub_data[s]['accuracy'], sub_data[s]['required_answer']) if s_p=='1' and s_a=='wrong' and req=='NO'])
-            total_no = len([1 for req in sub_data[s]['required_answer'] if req=='NO'])
+            false_alarms = len([1 for s_p, s_a, req in zip(sub_data[s]['PAS_score'], sub_data[s]['accuracy'], sub_data[s]['required_answer']) if s_p==pas_val and s_a=='wrong' and req=='NO'])
+            total_no = len([1 for s_p, req in zip(sub_data[s]['PAS_score'], sub_data[s]['required_answer']) if req=='NO'])
             false_alarms_rate = (false_alarms + 1) / total_no
             z_fa = stats.norm.ppf(false_alarms_rate)
             ### d-prime
             d_prime = z_hit - z_fa
             assert str(d_prime) not in ['inf', '-inf', 'nan']
+            #if str(d_prime) in ['inf', '-inf', 'nan']:
+            #    d_prime = 0.
             d_primes[s].append(d_prime)
             if _ == 0:
                 lows.append(d_prime)
