@@ -66,6 +66,8 @@ def process_searchlight_subject(current_args):
             for key in rel_keys:
                 #if line[key] in ['2']:
                 #    continue
+                if line[key] not in mapper.keys():
+                    continue
                 case = mapper[line[key]]
                 if word not in erp_dict[case].keys():
                     erp_dict[case][word] = list()
@@ -92,8 +94,8 @@ def process_searchlight_subject(current_args):
                     continue
             #if len(whole_erp_data.keys()) < 8:
             #    continue
-            #if len(whole_erp_data.keys()) < 20:
-            if len(whole_erp_data.keys()) < 7:
+            #if len(whole_erp_data.keys()) < 7:
+            if len(whole_erp_data.keys()) < 20:
                 #print([case, len(whole_erp_data.keys())])
                 continue
             #avg_data = {k : numpy.average(v, axis=0) for k, v in erp_data.items()}
@@ -205,6 +207,12 @@ with open(os.path.join('plots_events_analyses', 'derivatives', 'd-prime_per_subj
         subjects_dprimes[subject] = [float(val) for val in line[1:]]
 #print('removing {} subjects in the high condition because d-primes are too low'.format(45-len(high_subjects)))
 
+cmaps = {
+         'low' : 'Purples',
+         'mid' : 'Greys',
+         'high' : 'Oranges',
+         }
+
 ### reading norms
 global norms
 global vectors
@@ -222,8 +230,8 @@ for stimuli_selection in [
                           #'bootstrap',
                           ]:
     for subject_correction in [
-                               #'all_subjects',
-                               'd0.5', 
+                               'all_subjects',
+                               #'d0.5', 
                                #'d0.75', 
                                #'d0.25', 
                                ]:
@@ -254,14 +262,14 @@ for stimuli_selection in [
                               '1' : 'low',
                               '2' : 'mid',
                               '3' : 'high',
-                              'correct' : 'correct',
-                              'wrong' : 'wrong',
-                              '1_correct' : 'low_correct',
-                              '1_wrong' : 'low_wrong',
-                              '2_correct' : 'mid_correct',
-                              '2_wrong' : 'mid_wrong',
-                              '3_correct' : 'high_correct',
-                              '3_wrong' : 'high_wrong',
+                              #'correct' : 'correct',
+                              #'wrong' : 'wrong',
+                              #'1_correct' : 'low_correct',
+                              #'1_wrong' : 'low_wrong',
+                              #'2_correct' : 'mid_correct',
+                              #'2_wrong' : 'mid_wrong',
+                              #'3_correct' : 'high_correct',
+                              #'3_wrong' : 'high_wrong',
                               }
                     for space in [
                                   30, 
@@ -376,47 +384,74 @@ for stimuli_selection in [
 
                             global model
                             for model in [
-                                          #'fasttext', 
-                                          #'fasttext-zscored', 
+                                          ### visual
+                                          'full_orthographic',
+                                          #'coltheart_N',
                                           #'OLD20',
-                                          #'wordnet',
+                                          #'pixel_overlap',
+                                          #'structural_similarity',
                                           #'levenshtein',
-                                          'visual',
-                                          'joint_corpora_log10_frequency',
-                                          'joint_corpora_raw_frequency',
-                                          'word_length', 
-                                          #'emotional',
-                                          #'perceptual',
-                                          #'semantic_category', 
-                                          #'conceptnet-zscored', 
-                                          #'conceptnet', 
-                                          ###
-                                          #
+                                          #'word_length', 
+                                          #'log_OLD20', 
+                                          #'log_word_length', 
+                                          ### frequency
+                                          #'joint_corpora_log10_frequency',
+                                          #'wiki_log10_frequency',
+                                          #'wiki_raw_frequency',
                                           #'wac_log10_frequency',
                                           #'wac_raw_frequency',
                                           #'opensubs_log10_frequency',
                                           #'opensubs_raw_frequency',
+                                          ### semantic category
+                                          #'wordnet',
+                                          #'semantic_category', 
+                                          ### word vectors
+                                          #'fasttext', 
+                                          #'fasttext-en', 
+                                          #'conceptnet', 
+                                          #'conceptnet-en', 
+                                          #'xlm-xxl_top_four',
+                                          #'xlm-xxl_top_six',
+                                          #'xlm-roberta-large_top_four',
+                                          #'xlm-roberta-large_top_six',
+                                          ### psycholinguistic variables
+                                          #'log_aoa',
+                                          #'log_concreteness', 
+                                          'emotional',
+                                          'perceptual',
                                           #'concreteness',
-                                          #
                                           #'valence',
                                           #'arousal',
                                           #'aoa',
-                                          #'w2v',
-                                          #'w2v-baroni',
+                                          #'vision',
+                                          #'smell',
+                                          #'taste',
+                                          #'hearing',
+                                          #'touch',
+                                          #'avg_path_similarity',
+                                          #'median_path_similarity',
+                                          #'avg_wup_similarity',
+                                          #'median_wup_similarity',
+                                          #'avg_res_similarity',
+                                          #'median_res_similarity',
+                                          #'avg_jcn_similarity',
+                                          #'median_jcn_similarity',
+                                          #'avg_lin_similarity',
+                                          #'median_lin_similarity',
                                           ]:
                                 print(model)
                                 current_args = [{
                                      'min_val' : min_val,
                                      'regression_model' : regression_model, 
                                      'subject' : s,
-                                     'model' : model,
+                                    'model' : model,
                                      } for s in subjects]
                                 out_folder = os.path.join(general_folder, model, args.evaluation)
                                 os.makedirs(out_folder, exist_ok=True)
                                 if args.debugging:
                                     results = map(process_searchlight_subject, current_args)
                                 else:
-                                    max_procs = 40 if regression_model=='ridge' else 3
+                                    max_procs = 40 if regression_model=='ridge' else 2
                                     with multiprocessing.Pool(processes=int(os.cpu_count()/max_procs)) as pool:
                                         results = pool.map(process_searchlight_subject, current_args)
                                         pool.terminate()
@@ -452,6 +487,7 @@ for stimuli_selection in [
                                     baseline = 0.5
 
                                 for case, case_results in all_results.items():
+                                    print(case)
                                     print(to_keep_cases[case])
                                     print('considering {} subjects'.format(len(to_keep)))
                                     t_stats, _, p_values, _ = mne.stats.spatio_temporal_cluster_1samp_test(
@@ -528,24 +564,30 @@ for stimuli_selection in [
                                                             to_keep_cases[case],
                                                            )
 
+                                    if case in cmaps.keys():
+                                        cmap = cmaps[case]
+                                    else:
+                                        cmap = 'cividis'
                                     evoked.plot_topomap(ch_type='eeg', 
                                             time_unit='s', 
                                             times=evoked.times,
                                             ncols='auto',
                                             nrows='auto', 
-                                            vmax=0.075,
-                                            vmin=0.,
+                                            #vmax=0.075,
+                                            #vmin=0.,
+                                            vlim=(0., 0.075),
                                             scalings={'eeg':1.}, 
-                                            cmap='Spectral_r',
+                                            cmap=cmap,
                                             mask=reshaped_p<=significance,
                                             mask_params=dict(marker='o', markerfacecolor='black', markeredgecolor='black',
                                                 linewidth=0, markersize=4),
                                             #colorbar=False,
                                             size = 3.,
-                                            title=title,
+                                            #title=title,
                                             )
 
                                     pyplot.savefig(output_file, dpi=600)
-                                    #pyplot.savefig(output_file.replace('jpg', 'svg'), dpi=600)
+                                    if case in cmaps.keys():
+                                        pyplot.savefig(output_file.replace('jpg', 'svg'))
                                     pyplot.clf()
                                     pyplot.close()

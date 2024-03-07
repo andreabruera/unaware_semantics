@@ -81,6 +81,7 @@ def compute_rsa(t, erp_data, combs,rsa_model):
 
 def compute_rsa_correlation(t, erp_data, model):
     t_data = {k : v[:, t].flatten() for k, v in erp_data.items()}
+    #t_data = {k : numpy.average(v[:, t], axis=1) for k, v in erp_data.items()}
     accuracies = list()
     for test_item in t_data.keys():
         ### z-scoring
@@ -235,7 +236,10 @@ def read_norms_vectors_sims_dists():
     distances = dict()
     all_combs = [tuple(sorted(v)) for v in itertools.combinations(norms[h].keys(), r=2)]
     for norm_type in [
+                      'coltheart_N',
                       'OLD20', 
+                      'wiki_log10_frequency',
+                      'wiki_raw_frequency',
                       'wac_log10_frequency',
                       'wac_raw_frequency',
                       'opensubs_log10_frequency',
@@ -248,28 +252,49 @@ def read_norms_vectors_sims_dists():
                       'aoa',
                       'valence', 
                       'arousal',
+                      'vision',
+                      'touch',
+                      'hearing',
+                      'smell',
+                      'taste',
                      ]:
         distances[norm_type] = dict()
         for w_one, w_two in all_combs:
             distances[norm_type][(w_one, w_two)] = abs(norms[norm_type][w_one] - norms[norm_type][w_two])
+    for norm_type in [
+                      'log_OLD20', 
+                      'log_word_length', 
+                      'log_aoa',
+                      'log_concreteness', 
+                     ]:
+        distances[norm_type] = dict()
+        for w_one, w_two in all_combs:
+            distances[norm_type][(w_one, w_two)] = abs(numpy.log10(norms[norm_type.replace('log_', '')][w_one]) - numpy.log10(norms[norm_type.replace('log_', '')][w_two]))
     ### perceptual
     senses = ['vision', 'smell', 'taste', 'hearing', 'touch']
     distances['perceptual'] = dict()
     for w_one, w_two in all_combs:
         vec_one = [norms[s][w_one] for s in senses]
         vec_two = [norms[s][w_two] for s in senses]
-        distances['perceptual'][(w_one, w_two)] = scipy.spatial.distance.cosine(vec_one, vec_two)
+        distances['perceptual'][(w_one, w_two)] = scipy.spatial.distance.euclidean(vec_one, vec_two)
     ### emotional
     emotions = ['valence', 'arousal', 'dominance',]
     distances['emotional'] = dict()
     for w_one, w_two in all_combs:
         vec_one = [norms[s][w_one] for s in emotions]
         vec_two = [norms[s][w_two] for s in emotions]
-        distances['emotional'][(w_one, w_two)] = scipy.spatial.distance.cosine(vec_one, vec_two)
+        distances['emotional'][(w_one, w_two)] = scipy.spatial.distance.euclidean(vec_one, vec_two)
     ### levenshtein
     distances['levenshtein'] = dict()
     for w_one, w_two in all_combs:
         distances['levenshtein'][(w_one, w_two)] = levenshtein(w_one, w_two)
+    distances['full_orthographic'] = dict()
+    ortho = ['OLD20', 'word_length',]
+    vowels = ['a', 'e', 'i', 'o', 'u']
+    for w_one, w_two in all_combs:
+        vec_one = [norms[s][w_one] for s in ortho] + [sum([1 for let in w_one if let in vowels])]
+        vec_two = [norms[s][w_two] for s in ortho] + [sum([1 for let in w_two if let in vowels])]
+        distances['full_orthographic'][(w_one, w_two)] = scipy.spatial.distance.euclidean(vec_one, vec_two)
 
     ### scaling in 0 to +1
     #for h, h_scores in distances.items():
@@ -289,28 +314,39 @@ def read_norms_vectors_sims_dists():
 
     ### loading similarities and scaling them
     for f in os.listdir('similarities'):
-        key = f.split('_')[0]
-        ### using wup for wn
-        idx = 3
-        '''
-        if 'wordnet' in key:
-            idx = 3
-        if 'fasttext' in key:
-            idx = 3
+        #key = f.split('_')[0]
+        key = f.replace('_similarities.tsv', '')
+        if key == 'visual':
+            idxs = [2, 3]
+        if key == 'wordnet':
+            idxs = list(range(2, 12))
         else:
-            idx = 2
-        '''
-        f_sims = dict()
-        with open(os.path.join('similarities', f)) as i:
-            counter = 0
-            for l in i:
-                if counter == 0:
-                    counter += 1
-                    continue
-                line = l.strip().split('\t')
-                ### correlation/path/ or cosine/wup/
-                f_sims[(line[0], line[1])] = float(line[idx])
-        similarities[key] = norm_minus_one_one(f_sims.items())
+            ### using wup for wn
+            idxs = [3]
+
+        for idx in idxs:
+            '''
+            if 'wordnet' in key:
+                idx = 3
+            if 'fasttext' in key:
+                idx = 3
+            else:
+                idx = 2
+            '''
+            f_sims = dict()
+            with open(os.path.join('similarities', f)) as i:
+                counter = 0
+                for l in i:
+                    line = l.strip().split('\t')
+                    if counter == 0:
+                        if len(idxs) >= 2:
+                            key = line[idx].lower().replace(' ', '_')
+                        counter += 1
+                        continue
+                    ### correlation/path/ or cosine/wup/
+                    f_sims[(line[0], line[1])] = float(line[idx])
+            print(key)
+            similarities[key] = norm_minus_one_one(f_sims.items())
 
     ### adding models to vectors
     vectors['fasttext'] = dict()
@@ -320,6 +356,7 @@ def read_norms_vectors_sims_dists():
                 continue
             line = l.strip().split('\t')
             vectors['fasttext'][line[0]] = numpy.array(line[1:], dtype=numpy.float32)
+    '''
     vectors['wordnet'] = dict()
     for w in vectors['fasttext'].keys():
         w_wn_vec = list()
@@ -336,5 +373,6 @@ def read_norms_vectors_sims_dists():
                 continue
             w_wn_vec.append(similarities['visual'][tuple(sorted([w, w_two]))])
         vectors['visual'][w] = numpy.array(w_wn_vec, dtype=numpy.float64)
+    '''
 
     return norms, vectors, similarities, distances

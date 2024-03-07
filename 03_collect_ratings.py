@@ -1,6 +1,7 @@
 import numpy
 import os
 import pickle
+import scipy
 
 from nltk.corpus import wordnet
 from tqdm import tqdm
@@ -46,6 +47,11 @@ with open(os.path.join('data', 'chosen_words.txt')) as i:
         line = l.strip().split('\t')
         cats[line[0]] = cat_mapper[line[-1]]
         en_to_it[line[1]] = line[0]
+
+#with open(os.path.join('data', 'unawaresemantics.txt'), 'w') as o:
+#    o.write('word\tvalid_pos_tags\n')
+#    for w in cats.keys():
+#        o.write('{}\tNOUN\n'.format(w))
 
 ratings = {
            'aoa' : {w : list() for w in en_to_it.values()},
@@ -136,7 +142,7 @@ with open(os.path.join('data', 'BRM-emot-submit.csv')) as i:
             ratings[dest][en_to_it[word]].append(float(line[idx]))
 
 ### reading frequencies
-for corpus in ['opensubs', 'wac']:
+for corpus in ['opensubs', 'wac', 'wiki']:
     freqs = pickle.load(open(os.path.join('..', 'psychorpus', 'pickles', 'it', 'it_{}_word_freqs.pkl'.format(corpus)), 'rb'))
     ratings['{}_raw_frequency'.format(corpus)] = dict()
     ratings['{}_log10_frequency'.format(corpus)] = dict()
@@ -145,8 +151,20 @@ for corpus in ['opensubs', 'wac']:
         ### also considering uppercase
         if w.capitalize() in freqs.keys():
             freq += freqs[w.capitalize()]
+        if w == 'passero':
+            alt_w = 'passerotto'
+            if alt_w in freqs.keys():
+                freq += freqs[w.capitalize()]
+            if alt_w.capitalize() in freqs.keys():
+                freq += freqs[w.capitalize()]
         ratings['{}_raw_frequency'.format(corpus)][w] = [freq]
         ratings['{}_log10_frequency'.format(corpus)][w] = [numpy.log10(freq)]
+### computing correlation between corpora
+ws = list(ratings['{}_log10_frequency'.format(corpus)].keys())
+oss = [ratings['wiki_raw_frequency'][w][0] for w in ws]
+wac = [ratings['wac_raw_frequency'][w][0] for w in ws]
+corr = scipy.stats.pearsonr(oss, wac).statistic
+print('correlation between corpora: {}'.format(round(corr, 4)))
 
 ratings['joint_corpora_raw_frequency'] = dict()
 ratings['joint_corpora_log10_frequency'] = dict()
@@ -161,36 +179,54 @@ for w in cats.keys():
 ### computing OLD20
 lemma_freqs = pickle.load(open(os.path.join('..', 'psychorpus', 'pickles', 'it', 'it_wac_lemma_freqs.pkl'), 'rb'))
 max_n = 35502
-other_words = sorted(lemma_freqs.items(), key=lambda item : item[1], reverse=True)[:max_n]
+other_words = [w[0] for w in sorted(lemma_freqs.items(), key=lambda item : item[1], reverse=True)][:max_n]
 
 ratings['OLD20'] = dict()
+ratings['coltheart_N'] = dict()
 for w in tqdm(cats.keys()):
-    lev_vals = [levenshtein(w, other_w) for other_w in other_words]
-    score = numpy.average(sorted(lev_vals, reverse=True)[:20])
+    lev_vals = [levenshtein(w, other_w) for other_w in other_words if other_w!=w]
+    score = numpy.average(sorted(lev_vals)[:20])
     ratings['OLD20'][w] = [score]
+    score = sum([1 if val==1 else 0 for val in lev_vals])
+    ratings['coltheart_N'][w] = [score]
+print(ratings['OLD20'])
 
 for k, v in ratings.items():
     for w, w_v in v.items():
         assert len(w_v) >= 1
         if len(w_v) > 1:
             print(w_v)
+cat_list = [
+        'coltheart_N', 
+        'OLD20', 
+        'wiki_raw_frequency', 
+        'wiki_log10_frequency', 
+        'wac_raw_frequency', 
+        'wac_log10_frequency', 
+        'opensubs_raw_frequency', 
+        'opensubs_log10_frequency',
+        'joint_corpora_raw_frequency', 
+        'joint_corpora_log10_frequency',
+        'aoa', 
+        'concreteness',
+        'vision', 
+        'smell', 
+        'touch', 
+        'taste', 
+        'hearing',
+        'valence', 
+        'arousal', 
+        'dominance',
+        ]
 
 ### writing to file
 with open(os.path.join('data', 'word_norms.tsv'), 'w') as o:
     o.write('word\tword_length\tsemantic_category\t')
-    for cat in ['OLD20', 'wac_raw_frequency', 'wac_log10_frequency', 
-                'opensubs_raw_frequency', 'opensubs_log10_frequency',
-                'joint_corpora_raw_frequency', 'joint_corpora_log10_frequency',
-                'aoa', 'concreteness', 'vision', 'smell', 'touch', 'taste', 'hearing',
-                'valence', 'arousal', 'dominance',]:
+    for cat in cat_list:
         o.write('{}\t'.format(cat))
     o.write('\n')
     for w, c in cats.items():
         o.write('{}\t{}\t{}\t'.format(w, len(w), c))
-        for cat in ['OLD20', 'wac_raw_frequency', 'wac_log10_frequency', 
-                    'opensubs_raw_frequency', 'opensubs_log10_frequency',
-                    'joint_corpora_raw_frequency', 'joint_corpora_log10_frequency',
-                    'aoa', 'concreteness', 'vision', 'smell', 'touch', 'taste', 'hearing',
-                    'valence', 'arousal', 'dominance',]:
+        for cat in cat_list:
             o.write('{}\t'.format(ratings[cat][w][0]))
         o.write('\n')
