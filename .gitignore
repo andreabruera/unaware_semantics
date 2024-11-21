@@ -1,5 +1,7 @@
 plots/
 pickles/
+collect_word_sentences/llm_vectors/
+collect_word_sentences/sentences/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

@@ -75,8 +75,8 @@ def compute_rsa(t, erp_data, combs,rsa_model):
     ### z-scoring all items
     #current_data = z_score(t_data, [])
     current_data = t_data.copy()
-    t_corrs = [scipy.stats.pearsonr(current_data[w_one], current_data[w_two])[0] for w_one, w_two in combs]
-    corr = scipy.stats.pearsonr(rsa_model, t_corrs)[0]
+    t_corrs = [scipy.stats.spearmanr(current_data[w_one], current_data[w_two])[0] for w_one, w_two in combs]
+    corr = scipy.stats.spearmanr(rsa_model, t_corrs)[0]
     return (t, corr)
 
 def compute_rsa_correlation(t, erp_data, model):
@@ -90,7 +90,7 @@ def compute_rsa_correlation(t, erp_data, model):
         predictions = rsa_encoding(current_data, [test_item], model)
         predicted_vector = predictions[0]
 
-        score = scipy.stats.pearsonr(predicted_vector, t_data[test_item])[0]
+        score = scipy.stats.spearmanr(predicted_vector, t_data[test_item])[0]
         if str(score) == 'nan':
             print('corrected')
             score = 0.
@@ -109,7 +109,7 @@ def compute_ridge_correlation(t, erp_data, model):
         #current_data = t_data.copy()
         ridge = sklearn.linear_model.RidgeCV(alphas=(0.01, 0.1, 1., 10, 100., 1000))
         train_items = [w for w in current_data.keys() if w!=test_item]
-        if model not in ['visual', 'wordnet', 'fasttext']:
+        if model not in ['visual', 'wordnet', 'fasttext', 'opensubs-ppmi']:
             train_input = [numpy.array([t]) for t in train_input]
         else:
             train_input = [vectors[model][w] for w in train_items]
@@ -288,13 +288,23 @@ def read_norms_vectors_sims_dists():
     distances['levenshtein'] = dict()
     for w_one, w_two in all_combs:
         distances['levenshtein'][(w_one, w_two)] = levenshtein(w_one, w_two)
-    distances['full_orthographic'] = dict()
+    distances['two-vars_orthographic'] = dict()
     ortho = ['OLD20', 'word_length',]
-    vowels = ['a', 'e', 'i', 'o', 'u']
+    #vowels = ['a', 'e', 'i', 'o', 'u']
     for w_one, w_two in all_combs:
-        vec_one = [norms[s][w_one] for s in ortho] + [sum([1 for let in w_one if let in vowels])]
-        vec_two = [norms[s][w_two] for s in ortho] + [sum([1 for let in w_two if let in vowels])]
-        distances['full_orthographic'][(w_one, w_two)] = scipy.spatial.distance.euclidean(vec_one, vec_two)
+        #vec_one = [norms[s][w_one] for s in ortho] + [sum([1 for let in w_one if let in vowels])]
+        #vec_two = [norms[s][w_two] for s in ortho] + [sum([1 for let in w_two if let in vowels])]
+        vec_one = [norms[s][w_one]  for s in ortho]
+        vec_two = [norms[s][w_two] for s in ortho]
+        distances['two-vars_orthographic'][(w_one, w_two)] = scipy.spatial.distance.euclidean(vec_one, vec_two)
+    distances['two-vars_lexical'] = dict()
+    ortho = ['aoa', 'wac_log10_frequency',]
+    for w_one, w_two in all_combs:
+        #vec_one = [norms[s][w_one] for s in ortho] + [sum([1 for let in w_one if let in vowels])]
+        #vec_two = [norms[s][w_two] for s in ortho] + [sum([1 for let in w_two if let in vowels])]
+        vec_one = [norms[s][w_one] for s in ortho]
+        vec_two = [norms[s][w_two] for s in ortho]
+        distances['two-vars_lexical'][(w_one, w_two)] = scipy.spatial.distance.euclidean(vec_one, vec_two)
 
     ### scaling in 0 to +1
     #for h, h_scores in distances.items():
@@ -356,6 +366,13 @@ def read_norms_vectors_sims_dists():
                 continue
             line = l.strip().split('\t')
             vectors['fasttext'][line[0]] = numpy.array(line[1:], dtype=numpy.float32)
+    vectors['opensubs-ppmi'] = dict()
+    with open(os.path.join('vectors', 'opensubs-ppmi_vectors.tsv')) as i:
+        for l_i, l in enumerate(i):
+            if l_i == 0:
+                continue
+            line = l.strip().split('\t')
+            vectors['opensubs-ppmi'][line[0]] = numpy.array(line[1:], dtype=numpy.float32)
     '''
     vectors['wordnet'] = dict()
     for w in vectors['fasttext'].keys():

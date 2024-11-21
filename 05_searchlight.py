@@ -9,11 +9,12 @@ import scipy
 import sklearn
 
 from matplotlib import pyplot
+from matplotlib.colors import LinearSegmentedColormap
 from scipy import spatial, stats
 from sklearn import linear_model
 from tqdm import tqdm
 
-from utils import compute_ridge_correlation, compute_rsa_correlation, create_adjacency_matrix, read_norms_vectors_sims_dists
+from utils import compute_ridge_correlation, compute_rsa, compute_rsa_correlation, create_adjacency_matrix, read_norms_vectors_sims_dists
 
 def process_searchlight_subject(current_args):
 
@@ -207,12 +208,6 @@ with open(os.path.join('plots_events_analyses', 'derivatives', 'd-prime_per_subj
         subjects_dprimes[subject] = [float(val) for val in line[1:]]
 #print('removing {} subjects in the high condition because d-primes are too low'.format(45-len(high_subjects)))
 
-cmaps = {
-         'low' : 'Purples',
-         'mid' : 'Greys',
-         'high' : 'Oranges',
-         }
-
 ### reading norms
 global norms
 global vectors
@@ -220,6 +215,14 @@ global distances
 global similarities
 
 norms, vectors, similarities, distances = read_norms_vectors_sims_dists()
+sp_cmaps  = {
+        'two-vars_orthographic' : ('coral', 'mediumseagreen'),
+        'two-vars_lexical' : ('mediumvioletred', 'seagreen'),
+        'wac-ppmi-it' : ('mediumorchid', 'cadetblue'),
+        'wac-coocs-it' : ('hotpink', 'olivedrab'),
+        'fasttext' : ('goldenrod', 'teal'), 
+        'xlm-roberta-xl-top-4-it' : ('chocolate', 'royalblue'),
+          }
 
 ### testing various things: 
 ### 20mm vs 30mm
@@ -254,8 +257,8 @@ for stimuli_selection in [
                               '1' : 'low',
                               '2' : 'mid',
                               '3' : 'high',
-                              'correct' : 'correct',
-                              'wrong' : 'wrong',
+                              #'correct' : 'correct',
+                              #'wrong' : 'wrong',
                               }
                     else:
                         mapper = {
@@ -264,12 +267,12 @@ for stimuli_selection in [
                               '3' : 'high',
                               #'correct' : 'correct',
                               #'wrong' : 'wrong',
-                              #'1_correct' : 'low_correct',
-                              #'1_wrong' : 'low_wrong',
+                              '1_correct' : 'low_correct',
+                              '1_wrong' : 'low_wrong',
                               #'2_correct' : 'mid_correct',
                               #'2_wrong' : 'mid_wrong',
-                              #'3_correct' : 'high_correct',
-                              #'3_wrong' : 'high_wrong',
+                              '3_correct' : 'high_correct',
+                              '3_wrong' : 'high_wrong',
                               }
                     for space in [
                                   30, 
@@ -382,10 +385,12 @@ for stimuli_selection in [
                                                           'searchlight_{}mm_{}ms'.format(space, time)
                                                           )
 
+
                             global model
                             for model in [
                                           ### visual
-                                          'full_orthographic',
+                                          'two-vars_orthographic',
+                                          'two-vars_lexical',
                                           #'coltheart_N',
                                           #'OLD20',
                                           #'pixel_overlap',
@@ -406,19 +411,61 @@ for stimuli_selection in [
                                           #'wordnet',
                                           #'semantic_category', 
                                           ### word vectors
-                                          #'fasttext', 
+                                          #'tagged_wiki-ppmi-it',
+                                          #'tagged_wiki-coocs-it',
+                                          #'opensubs-ppmi-it',
+                                          #'opensubs-coocs-it',
+                                          'wac-ppmi-it',
+                                          'wac-coocs-it',
+                                          #'wac-ppmi-it',
+                                          #'cc100-ppmi-it',
+                                          #'wac-coocs-it',
+                                          #'cc100-coocs-it',
+                                          #'opensubs-ppmi-en',
+                                          #'opensubs-coocs-en',
+                                          #'wac-ppmi-en',
+                                          #'wac-coocs-en',
+                                          'fasttext', 
                                           #'fasttext-en', 
                                           #'conceptnet', 
                                           #'conceptnet-en', 
                                           #'xlm-xxl_top_four',
                                           #'xlm-xxl_top_six',
+                                          #'xlm-roberta-large-top-4-it',
+                                          'llama-3b-top-4-it',
+                                          'xlm-roberta-xl-top-4-it',
+                                          #'llama-1b-top-4-it',
+                                          #'xlm-roberta-large-top-4-en',
+                                          #'xlm-roberta-xl-top-4-en',
+                                          #'llama-1b-top-4-en',
+                                          #'llama-3b-top-4-en',
+                                          #'xlm-roberta-large-top-6-it',
                                           #'xlm-roberta-large_top_four',
                                           #'xlm-roberta-large_top_six',
+                                          #'xlm-roberta-large-mid-low-4-it',
+                                          #'xlm-roberta-large-mid-hi-4-it',
+                                          #'xlm-roberta-xl-mid-low-4-it',
+                                          #'xlm-roberta-xl-mid-hi-4-it',
+                                          #'xlm-roberta-large-mid-low-4-en',
+                                          #'xlm-roberta-large-mid-hi-4-en',
+                                          #'xlm-roberta-xl-mid-low-4-en',
+                                          #'xlm-roberta-xl-mid-hi-4-en',
+                                          #'xlm-roberta-xl-top-6-it',
+                                          #'llama-1b-mid-low-4-it',
+                                          #'llama-1b-mid-hi-4-it',
+                                          #'llama-1b-mid-low-4-en',
+                                          #'llama-1b-mid-hi-4-en',
+                                          #'llama-1b-top-6-it',
+                                          #'llama-3b-mid-low-4-it',
+                                          #'llama-3b-mid-hi-4-it',
+                                          #'llama-3b-mid-low-4-en',
+                                          #'llama-3b-mid-hi-4-en',
+                                          #'llama-3b-top-6-it',
                                           ### psycholinguistic variables
                                           #'log_aoa',
                                           #'log_concreteness', 
-                                          'emotional',
-                                          'perceptual',
+                                          #'emotional',
+                                          #'perceptual',
                                           #'concreteness',
                                           #'valence',
                                           #'arousal',
@@ -440,6 +487,28 @@ for stimuli_selection in [
                                           #'median_lin_similarity',
                                           ]:
                                 print(model)
+                                if model in sp_cmaps.keys():
+                                    cmaps = {
+                                            'low' : LinearSegmentedColormap.from_list(
+                                                                           "mycmap", 
+                                                                          [
+                                                                           'white',
+                                                                           sp_cmaps[model][1],
+                                                                           ]),
+                                            'mid' : 'Greys',
+                                            'high' : LinearSegmentedColormap.from_list(
+                                                                           "mycmap", 
+                                                                          [
+                                                                           'white',
+                                                                           sp_cmaps[model][0],
+                                                                           ]),
+                                                                          }
+                                else:
+                                    cmaps = {
+                                          'low' : 'Purples',
+                                          'mid' : 'Greys',
+                                          'high' : 'Oranges',
+                                          }
                                 current_args = [{
                                      'min_val' : min_val,
                                      'regression_model' : regression_model, 
@@ -547,16 +616,23 @@ for stimuli_selection in [
                                     assert reshaped_p.shape[-1] == time_points
                                     txt_path = output_file.replace('.jpg', '.txt')
 
+                                    avgs = evoked.get_data()
                                     with open(txt_path, 'w') as o:
-                                        o.write('Time\tElectrode\tp-value\tt-value\n')
+                                        o.write('Time\tElectrode\taverage_spearman_rho\tp-value\tt-value\n')
                                         for t_i in range(reshaped_p.shape[-1]):
-                                            time = t_i
+                                            time = evoked.times[t_i]
                                             for c_i in range(reshaped_p.shape[0]):
                                                 channel = elec_mapper[c_i]
                                                 p = reshaped_p[c_i, t_i]
                                                 p_value = reshaped_p[c_i, t_i]
                                                 t_value = t_stats.T[c_i, t_i]
-                                                o.write('{}\t{}\t{}\t{}\n'.format(time, channel, p_value, t_value))
+                                                o.write('{}\t{}\t{}\t{}\t{}\n'.format(
+                                                                               time, 
+                                                                               channel, 
+                                                                               avgs[c_i][t_i],
+                                                                               p_value, 
+                                                                               t_value)
+                                                                               )
 
                                     title = 'Searchlight for ERP: {} {} - {} subjects'.format(
                                                             case,
@@ -571,8 +647,8 @@ for stimuli_selection in [
                                     evoked.plot_topomap(ch_type='eeg', 
                                             time_unit='s', 
                                             times=evoked.times,
+                                            nrows=1, 
                                             ncols='auto',
-                                            nrows='auto', 
                                             #vmax=0.075,
                                             #vmin=0.,
                                             vlim=(0., 0.075),
@@ -587,7 +663,6 @@ for stimuli_selection in [
                                             )
 
                                     pyplot.savefig(output_file, dpi=600)
-                                    if case in cmaps.keys():
-                                        pyplot.savefig(output_file.replace('jpg', 'svg'))
+                                    pyplot.savefig(output_file.replace('jpg', 'svg'))
                                     pyplot.clf()
                                     pyplot.close()
