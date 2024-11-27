@@ -41,9 +41,9 @@ for model in os.listdir(base):
                     vecs[w] = [vec] 
     layers = len(vecs[w])
     for case in [
-                 #'mid-low-4', 
+                 'mid-low-4', 
                  #'mid-low-6', 
-                 #'mid-hi-4', 
+                 'mid-hi-4', 
                  #'mid-hi-6', 
                  'top-4',
                  #'top-6',

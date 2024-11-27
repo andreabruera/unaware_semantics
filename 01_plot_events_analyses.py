@@ -2,8 +2,17 @@ import matplotlib
 import numpy
 import os
 
-from matplotlib import pyplot
+from matplotlib import font_manager, pyplot
 from scipy import stats
+
+def font_setup(font_folder):
+    ### Font setup
+    # Using Helvetica as a font
+    font_dirs = [font_folder, ]
+    font_files = font_manager.findSystemFonts(fontpaths=font_dirs)
+    for p in font_files:
+        font_manager.fontManager.addfont(p)
+    matplotlib.rcParams['font.family'] = 'Helvetica LT Std'
 
 def read_words_and_triggers(additional_path='data', return_questions=False):
 
@@ -36,6 +45,8 @@ def read_words_and_triggers(additional_path='data', return_questions=False):
     else:
         return word_to_trigger
 
+font_setup('../../fonts')
+
 ### Reading questions
 _, questions = read_words_and_triggers(return_questions=True)
 
@@ -52,7 +63,7 @@ for folder in [
 
     sub_files = dict()
 
-    full_f = os.path.join('..', '..', 'dataset', 'neuroscience', 'unaware_semantics_bids', folder)
+    full_f = os.path.join('/', 'data', 'tu_bruera', 'neuroscience', 'unaware_semantics_bids', folder)
     assert os.path.exists(full_f)
     for root, direc, filez in os.walk(full_f):
         for f in filez:
@@ -118,7 +129,7 @@ for folder in [
         ax.plot([x, x], [min(y), max(y)], color='grey')
         ax.plot([x-.05, x+.05], [min(y), min(y)], color='grey')
         ax.plot([x-.05, x+.05], [max(y), max(y)], color='grey')
-    ax.legend()
+    ax.legend(ncols=3, loc=8)
     title = 'frequency of correct vs wrong answers'
     ax.set_title(title)
     pyplot.savefig(os.path.join(out_folder, 'correct_wrong.jpg'))
@@ -147,8 +158,8 @@ for folder in [
         ax.plot([x, x], [min(y), max(y)], color='grey')
         ax.plot([x-.05, x+.05], [min(y), min(y)], color='grey')
         ax.plot([x-.05, x+.05], [max(y), max(y)], color='grey')
-    ax.legend()
-    title = 'frequency of PAS scores'
+    ax.legend(ncols=3, loc=8, framealpha=0.9, fontsize=25)
+    title = 'PAS scores - proportions acr'
     ax.set_title(title)
     pyplot.savefig(os.path.join(out_folder, 'frequency_PAS.jpg'))
     pyplot.clf()
@@ -205,10 +216,14 @@ for folder in [
         ax.plot([x, x], [min(y), max(y)], color='grey')
         ax.plot([x-.05, x+.05], [min(y), min(y)], color='grey')
         ax.plot([x-.05, x+.05], [max(y), max(y)], color='grey')
-    ax.legend()
-    title = 'accuracy per pas category'
-    ax.set_title(title)
-    pyplot.savefig(os.path.join(out_folder, 'accuracy_per_pas.jpg'))
+    ax.legend(ncols=3, loc=8, fontsize=20)
+    ax.hlines(xmin=-.5, xmax=2.5, y=0.5, color='black', linestyle='dashed', alpha=0.9)
+    ax.spines['bottom'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    ax.spines['top'].set_visible(False)
+    title = 'Accuracy per PAS category'
+    ax.set_title(title, fontweight='bold', fontsize=20)
+    pyplot.savefig(os.path.join(out_folder, 'accuracy_per_pas.jpg'), dpi=300)
     pyplot.clf()
     pyplot.close()
 
@@ -266,10 +281,16 @@ for folder in [
         ax.plot([x, x], [min(y), max(y)], color='grey')
         ax.plot([x-.05, x+.05], [min(y), min(y)], color='grey')
         ax.plot([x-.05, x+.05], [max(y), max(y)], color='grey')
-    ax.legend()
-    title = 'd-prime per pas category'
+    ax.set_ylim(bottom=-.7, top=1.5)
+    ax.spines['bottom'].set_visible(False)
+    ax.spines['right'].set_visible(False)
+    ax.spines['top'].set_visible(False)
+    ax.legend(ncols=3, loc=8, fontsize=18)
+    ax.hlines(xmin=-.5, xmax=2.5, y=0., color='black', linestyle='dashed', alpha=0.9)
+    ax.set_xticks(())
+    title = 'd-prime per PAS category'
     ax.set_title(title)
-    pyplot.savefig(os.path.join(out_folder, 'd-prime_per_pas.jpg'))
+    pyplot.savefig(os.path.join(out_folder, 'd-prime_per_pas.jpg'), dpi=300)
     pyplot.clf()
     pyplot.close()
 
@@ -299,7 +320,7 @@ for folder in [
         ax.plot([x, x], [min(y), max(y)], color='grey')
         ax.plot([x-.05, x+.05], [min(y), min(y)], color='grey')
         ax.plot([x-.05, x+.05], [max(y), max(y)], color='grey')
-    ax.legend()
+    ax.legend(ncols=3, loc=8)
     title = 'RTs of correct vs wrong answers'
     ax.set_title(title)
     pyplot.savefig(os.path.join(out_folder, 'RTs_correct_wrong.jpg'))
@@ -357,7 +378,7 @@ for folder in [
         ax.plot([x, x], [min(y), max(y)], color='grey')
         ax.plot([x-.05, x+.05], [min(y), min(y)], color='grey')
         ax.plot([x-.05, x+.05], [max(y), max(y)], color='grey')
-    ax.legend()
+    ax.legend(ncols=3, loc=8)
     title = 'accuracy RTs per pas category'
     ax.set_title(title)
     pyplot.savefig(os.path.join(out_folder, 'RTs_accuracy_per_pas.jpg'))
@@ -385,10 +406,15 @@ for folder in [
     ax.hlines(y=792, xmin=0., xmax=46,
             linestyles='dashdot',
             label='max number of trials available', color='black')
-    ax.legend(fontsize=18)
-    title = 'PAS proportions per subject'
-    ax.set_title(title)
-    pyplot.savefig(os.path.join(out_folder, 'PAS_proportions_per_subject.jpg'))
+    pyplot.xlabel('Subject', fontweight='bold', fontsize=23)
+    pyplot.ylabel('Number of trials', fontweight='bold', fontsize=23)
+    pyplot.yticks(fontsize=18)
+    ax.legend(ncols=4, loc=8, fontsize=25, framealpha=0.9)
+    ax.spines['right'].set_visible(False)
+    ax.spines['top'].set_visible(False)
+    title = 'PAS scores - proportions per subject'
+    ax.set_title(title, fontsize=25, fontweight='bold')
+    pyplot.savefig(os.path.join(out_folder, 'PAS_proportions_per_subject.jpg'), dpi=300)
     pyplot.clf()
     pyplot.close()
 
@@ -404,14 +430,19 @@ for folder in [
     fig, ax = pyplot.subplots(constrained_layout=True, figsize=(21, 10))
     for bottom, y, label in [([0 for l in lows], correct, 'correct'), (correct, wrong, 'wrong')]:
         ax.bar(range(1, len(sub_data.keys())+1), height=y, bottom=bottom, color=colors[label], label=label)
-    ax.set_xticks(range(1, len(sub_data.keys())+1))
+    ax.set_xticks(range(1, len(sub_data.keys())+1),)
+    pyplot.xlabel('Subject', fontweight='bold', fontsize=23)
+    pyplot.ylabel('Number of trials', fontweight='bold', fontsize=23)
+    pyplot.yticks(fontsize=18)
     ax.hlines(y=792, xmin=0., xmax=46,
               linestyles='dashdot', label='max number of trials available',
               color='black')
-    ax.legend(fontsize=18)
-    title = 'Accuracy proportions per subject'
-    ax.set_title(title)
-    pyplot.savefig(os.path.join(out_folder, 'accuracy_proportions_per_subject.jpg'))
+    ax.legend(fontsize=25, ncols=3, loc=8, framealpha=0.9)
+    title = 'Accuracy - proportions per subject'
+    ax.spines['right'].set_visible(False)
+    ax.spines['top'].set_visible(False)
+    ax.set_title(title, fontsize=25, fontweight='bold')
+    pyplot.savefig(os.path.join(out_folder, 'accuracy_proportions_per_subject.jpg'), dpi=300)
     pyplot.clf()
     pyplot.close()
 
