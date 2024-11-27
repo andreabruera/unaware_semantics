@@ -3,8 +3,10 @@ import matplotlib
 import mne
 import numpy
 import os
+import scipy
 
 from matplotlib import font_manager, pyplot
+from scipy import stats
 from tqdm import tqdm
 
 def font_setup(font_folder):
@@ -176,6 +178,7 @@ current_out_folder = os.path.join(out_folder, 'sectors')
 os.makedirs(current_out_folder, exist_ok=True)
 for sector, elecs in zones.items():
     #current_erp_dict = {k : numpy.median(v[elecs, :], axis=0) for k, v in erp_dict.items()}
+    current_err_dict = {k : scipy.stats.sem(numpy.mean(v[:, elecs, :], axis=0), axis=0) for k, v in all_erps.items()}
     if args.stats == 'mean':
         current_erp_dict = {k : numpy.mean(numpy.mean(v[:, elecs, :], axis=0), axis=0) for k, v in all_erps.items()}
     if args.stats == 'median':
@@ -191,53 +194,62 @@ for sector, elecs in zones.items():
     for case, keys in plots.items():
         fig, ax = pyplot.subplots(figsize=(22,10), constrained_layout=True)
         for k in keys:
-            ax.plot(xs, current_erp_dict[k], color=colors[k], label=k)
+            ax.plot(xs, current_erp_dict[k], color=colors[k], label=k, linewidth=4)
+            ax.fill_between(xs, y1=current_erp_dict[k]-current_err_dict[k], y2=current_erp_dict[k]+current_err_dict[k], color=colors[k], alpha=0.2)
         height = 2
-        ax.vlines(x=0., ymin=-height*1e-6, ymax=height*1e-6, color='black')
+        ax.vlines(x=0., ymin=-1.5*1e-6, ymax=height*1e-6, color='black')
         ax.hlines(y=0., xmin=min(xs), xmax=max(xs), color='black')
-        ax.vlines(x=[0.2, 0.4, 0.6, 0.8, 1.], ymin=-height*1e-6, ymax=height*1e-6, linestyle='dashdot', color='gray', alpha=0.6)
+        ax.vlines(x=[0.2, 0.4, 0.6, 0.8, 1.], ymin=-1.5*1e-6, ymax=height*1e-6, linestyle='dashdot', color='gray', alpha=0.6)
         ax.legend(fontsize=25, ncols=3, loc=2)
-        title = '{} electrodes - ERP analysis for {}'.format(zone_names[sector], case)
+        title = '{} electrodes - ERP analysis per {}'.format(zone_names[sector].capitalize(), case.upper())
         if sector == 10:
             ax.text(
                     x=-.1,
-                    y=-.5*1e-6,
-                    s='difference\np<0.05',
+                    y=-.6*1e-6,
+                    s='ERP\ndifference\np<0.05',
                     fontsize=18,
                     fontstyle='italic',
                     fontweight='bold',
-                    va='center',
-                    ha='center',
+                    #va='center',
+                    #ha='center',
                     )
-            counter = 2
+            counter = 3
             for k, v in tests.items():
+                f = os.path.join(current_out_folder, '{}_{}_erp_t-tests_{}-{}.tsv'.format(zone_names[sector], case, k[0], k[1]))
+                with open(f, 'w') as o:
+                    o.write('time\tt_value\tp_value\n')
+                    for t_i in range(len(v[0])):
+                        time = xs[t_i]
+                        t = v[0][t_i]
+                        p = v[1][t_i]
+                        o.write('{}\t{}\t{}\n'.format(time, t, p))
                 p_xs = [i for i, v in enumerate(v[1]) if v<0.05]
                 if len(p_xs) > 0:
                     ax.scatter(
                             [xs[idx] for idx in p_xs],
-                            [(.5*-counter)*1e-6 for idx in p_xs],
+                            [(.3*-counter)*1e-6 for idx in p_xs],
                             color=colors[k[0]],
                             )
                     ax.scatter(
                             [xs[idx] for idx in p_xs],
-                            [(.515*-counter)*1e-6 for idx in p_xs],
+                            [((.3*-counter)-0.03)*1e-6 for idx in p_xs],
                             color=colors[k[1]],
                             )
                     ax.text(
                             x=-.1,
-                            y=(.5*-counter)*1e-6,
+                            y=((.3*-counter)-0.03)*1e-6,
                             s='{} vs {}'.format(k[0], k[1]),
                             fontsize=18,
                             )
                     counter += 1
-        ax.set_title(title)
+        ax.set_title(title, fontsize=35, fontweight='bold')
         ax.spines['right'].set_visible(False)
         ax.spines['top'].set_visible(False)
         pyplot.ylabel('$\\mu$Volt', fontsize=25, fontweight='bold')
         pyplot.xlabel('Seconds', fontsize=25, fontweight='bold')
         pyplot.yticks(ticks=[-1e-6, 0, 1e-6, 2*1e-6], labels=[-1, 0, 1, 2], fontsize=20)
         pyplot.xticks(fontsize=20)
-        pyplot.savefig(os.path.join(current_out_folder, '{}_{}_erps.jpg'.format(zone_names[sector], case)))
+        pyplot.savefig(os.path.join(current_out_folder, '{}_{}_erps.jpg'.format(zone_names[sector], case)), dpi=300)
         pyplot.clf()
         pyplot.close()
 
